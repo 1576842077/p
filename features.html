@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PingUI｜产品功能详情</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0b1120 100%);
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(56,189,248,0.15) 0%, transparent 70%);
+            top: -200px;
+            right: -150px;
+            z-index: 0;
+            filter: blur(60px);
+            animation: floatGlow 12s ease-in-out infinite alternate;
+        }
+        .bg-glow-2 {
+            left: -200px;
+            top: 40%;
+            background: radial-gradient(circle, rgba(129,140,248,0.12) 0%, transparent 70%);
+            animation: floatGlow 15s ease-in-out infinite alternate-reverse;
+        }
+        @keyframes floatGlow {
+            0% { transform: translate(0px,0px) scale(1); }
+            100% { transform: translate(40px,30px) scale(1.1); }
+        }
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 60px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            color: #38bdf8;
+            letter-spacing: 1px;
+        }
+        .logo span {
+            color: #f1f5f9;
+        }
+        .nav-btn {
+            padding: 10px 24px;
+            border: 1px solid rgba(56,189,248,0.4);
+            border-radius: 999px;
+            color: #38bdf8;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            background: rgba(56,189,248,0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .nav-btn:hover {
+            background: rgba(56,189,248,0.25);
+            color: #0f172a;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(56,189,248,0.2);
+        }
+        .page-title{
+            text-align:center;
+            margin-bottom:60px;
+        }
+        .page-title h1{
+            font-size:42px;
+            margin-bottom:12px;
+        }
+        .page-title p{
+            color:#94a3b8;
+            max-width:650px;
+            margin:0 auto;
+        }
+        .color-text {
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap:30px;
+            margin-bottom:80px;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding:32px;
+            transition: 0.3s;
+        }
+        .card:hover {
+            border-color: rgba(56,189,248,0.35);
+            transform: translateY(-6px);
+            box-shadow: 0 12px 40px rgba(56,189,248,0.12);
+        }
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(56,189,248,0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #38bdf8;
+            margin-bottom: 20px;
+        }
+        .card h3 {
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+        .card p {
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        .btns-bottom{
+            text-align:center;
+            margin:40px 0;
+        }
+        .btn-primary {
+            padding: 16px 36px;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            border-radius: 999px;
+            color: #0f172a;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(56,189,248,0.35);
+        }
+        .btn-outline {
+            padding: 16px 36px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 999px;
+            color: #f1f5f9;
+            text-decoration: none;
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: all 0.3s;
+            margin-left:16px;
+        }
+        .btn-outline:hover {
+            border-color: #38bdf8;
+            color: #38bdf8;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(56,189,248,0.15);
+        }
+        footer {
+            text-align: center;
+            color: #64748b;
+            padding-top: 40px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        @media(max-width:768px){
+            .page-title h1{
+                font-size:30px;
+            }
+            .btn-outline{
+                margin:12px 0 0 0;
+                display:block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="container">
+        <nav>
+            <div class="logo">Ping<span>UI</span></div>
+            <a href="index.html" class="nav-btn">返回首页</a>
+        </nav>
+        <div class="page-title">
+            <h1>完整产品<span class="color-text">功能详情</span></h1>
+            <p>PingUI 体验系统面向开发者、测试工程师、UI设计师的一站式可视化调试平台</p>
+        </div>
+        <div class="features">
+            <div class="card">
+                <div class="card-icon">📶</div>
+                <h3>全网Ping延迟检测</h3>
+                <p>多节点批量ping测速，实时监控接口响应延迟，生成可视化波动图表，快速定位网络卡顿问题。</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🎨</div>
+                <h3>UI可视化调试面板</h3>
+                <p>在线可视化调整页面样式、布局、动画，实时预览效果，支持导出CSS/代码片段。</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">⚡</div>
+                <h3>轻量云端运行</h3>
+                <p>无需本地安装客户端，浏览器直接打开使用，支持多端同步数据，低配置设备流畅运行。</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">📊</div>
+                <h3>性能数据报表</h3>
+                <p>自动统计页面加载、接口请求、网络耗时，生成完整性能分析报告，一键导出PDF。</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🔗</div>
+                <h3>接口批量测试</h3>
+                <p>支持HTTP/HTTPS/WebSocket批量请求，自定义请求头、参数，对比多环境返回数据。</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">👥</div>
+                <h3>团队协作空间</h3>
+                <p>项目、测试记录、UI草稿云端共享，多人在线协同批注，高效对接设计与开发。</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🔔</div>
+                <h3>异常告警通知</h3>
+                <p>网络延迟超限、接口异常自动告警，支持邮箱消息推送，实时掌握线上服务状态。</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">📋</div>
+                <h3>历史记录归档</h3>
+                <p>所有测速、调试记录云端保存归档，随时回溯对比不同时间节点性能差异。</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🔐</div>
+                <h3>安全权限管控</h3>
+                <p>团队成员细粒度权限，项目隔离保护数据，保障调试数据安全。</p>
+            </div>
+        </div>
+        <div class="btns-bottom">
+            <a href="subscribe.html" class="btn-primary">预约内测资格</a>
+            <a href="index.html" class="btn-outline">返回首页</a>
+        </div>
+        <footer>
+            <p>© 2026 PingUI 体验系统，非正式系统 | 版权所有</p>
+        </footer>
+    </div>
+</body>
+</html>

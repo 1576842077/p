@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PingUI｜预约内测</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0b1120 100%);
+            color: #f1f5f9;
+            overflow-x: hidden;
+            display:flex;
+            flex-direction:column;
+        }
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(56,189,248,0.15) 0%, transparent 70%);
+            top: -200px;
+            right: -150px;
+            z-index: 0;
+            filter: blur(60px);
+            animation: floatGlow 12s ease-in-out infinite alternate;
+        }
+        .bg-glow-2 {
+            left: -200px;
+            top: 40%;
+            background: radial-gradient(circle, rgba(129,140,248,0.12) 0%, transparent 70%);
+            animation: floatGlow 15s ease-in-out infinite alternate-reverse;
+        }
+        @keyframes floatGlow {
+            0% { transform: translate(0px,0px) scale(1); }
+            100% { transform: translate(40px,30px) scale(1.1); }
+        }
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 24px;
+            flex:1;
+            width:100%;
+        }
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 80px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            color: #38bdf8;
+            letter-spacing: 1px;
+        }
+        .logo span {
+            color: #f1f5f9;
+        }
+        .nav-btn {
+            padding: 10px 24px;
+            border: 1px solid rgba(56,189,248,0.4);
+            border-radius: 999px;
+            color: #38bdf8;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            background: rgba(56,189,248,0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .nav-btn:hover {
+            background: rgba(56,189,248,0.25);
+            color: #0f172a;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(56,189,248,0.2);
+        }
+        .subscribe-box{
+            max-width:620px;
+            margin:0 auto;
+            background: rgba(56,189,248,0.07);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(56,189,248,0.18);
+            border-radius: 24px;
+            padding:60px 40px;
+            text-align:center;
+        }
+        .subscribe-box h2{
+            font-size:34px;
+            margin-bottom:16px;
+        }
+        .color-text {
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .subscribe-box p.desc{
+            color:#94a3b8;
+            margin-bottom:36px;
+            line-height:1.7;
+        }
+        .form-box {
+            display: flex;
+            max-width: 480px;
+            margin: 0 auto;
+            gap: 14px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .form-box input {
+            flex: 1;
+            min-width: 260px;
+            padding: 16px 20px;
+            background: rgba(255,255,255,0.07);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 999px;
+            color: #fff;
+            outline: none;
+            font-size: 16px;
+            transition: border 0.3s, box-shadow 0.3s;
+        }
+        .form-box input:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56,189,248,0.15);
+        }
+        .form-box button {
+            padding: 16px 30px;
+            background: #38bdf8;
+            border: none;
+            border-radius: 999px;
+            color: #0f172a;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .form-box button:hover {
+            background: #0ea5e9;
+            box-shadow: 0 8px 24px rgba(56,189,248,0.3);
+        }
+        .form-box button:active {
+            transform: scale(0.97);
+        }
+        .tip-text{
+            margin-top:24px;
+            font-size:14px;
+            color:#64748b;
+        }
+        footer {
+            text-align: center;
+            color: #64748b;
+            padding:40px 0 20px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top:60px;
+        }
+        @media(max-width:768px){
+            .subscribe-box{
+                padding:40px 20px;
+            }
+            .subscribe-box h2{
+                font-size:26px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="container">
+        <nav>
+            <div class="logo">Ping<span>UI</span></div>
+            <a href="index.html" class="nav-btn">返回首页</a>
+        </nav>
+        <div class="subscribe-box">
+            <h2>抢先锁定<span class="color-text">内测资格</span></h2>
+            <p class="desc">填写邮箱，上线第一时间通知你。内测用户可获得专属免费高级功能权限，优先体验全部新特性。</p>
+            <div class="form-box">
+                <input type="email" placeholder="输入你的邮箱地址" id="email">
+                <button onclick="submitForm()">提交预约</button>
+            </div>
+            <div class="tip-text">我们不会向你发送垃圾邮件，你随时可以取消订阅</div>
+        </div>
+        <footer>
+            <p>© 2026 PingUI 体验系统，非正式系统 | 版权所有</p>
+        </footer>
+    </div>
+    <script>
+        function submitForm(){
+            const email = document.getElementById("email").value.trim();
+            if(!email || !email.includes("@")){
+                alert("请输入有效的邮箱地址");
+                return;
+            }
+            alert("预约成功！上线后我们将第一时间发送通知至你的邮箱");
+            document.getElementById("email").value = "";
+        }
+    </script>
+</body>
+</html>
