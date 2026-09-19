@@ -323,6 +323,8 @@
             <div class="btns">
                 <a href="subscribe.html" class="btn-primary">立即预约抢先体验</a>
                 <a href="features.html" class="btn-outline">查看完整产品功能</a>
+                <!-- 新增：访问Fuyue官网按钮，target="_blank"新标签页打开 -->
+                <a href="https://fuyueweb.pages.dev" target="_blank" class="btn-outline">访问Fuyue官网</a>
             </div>
         </section>
         <section class="features">
@@ -372,7 +374,6 @@
         }
         setInterval(updateCountdown, 1000);
         updateCountdown();
-
         const observer = new IntersectionObserver((entries)=>{
             entries.forEach(item=>{
                 if(item.isIntersecting){
@@ -386,3 +387,4 @@
     </script>
 </body>
 </html>
+<!-- （注：内容由AI生成） -->
