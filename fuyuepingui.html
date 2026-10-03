@@ -1,0 +1,1721 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PingUI 2.0 — Liquid Glass</title>
+  <link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: -apple-system, "SF Pro Display", "Inter", system-ui, sans-serif; }
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    #root { width: 100%; height: 100%; }
+    ::-webkit-scrollbar { display: none; }
+
+    :root {
+      --ios-safe-top: 54px;
+      --ios-safe-bottom: 34px;
+      --lg-blur: 30px;
+      --lg-saturate: 180%;
+      --spring-fast: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-io: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .boot-skeleton {
+      position: absolute; inset: 0;
+      background: #000;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; color: #fff;
+    }
+    .boot-skeleton .logo { font-weight: 800; font-size: 40px; letter-spacing: -0.5px; animation: bootSkeletonPulse 1.5s ease-in-out infinite; }
+    @keyframes bootSkeletonPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+    .lg { position: relative; background: rgba(30, 30, 38, 0.55); backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate)); -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate)); border: 0.5px solid rgba(255,255,255,0.12); overflow: hidden; }
+    .lg::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 35%, rgba(0,0,0,0.12) 100%); pointer-events: none; }
+    .lg-light { background: rgba(255,255,255,0.16); }
+
+    .orb { position: absolute; border-radius: 50%; filter: blur(40px); pointer-events: none; will-change: transform, opacity; }
+    @keyframes orbFloat { 0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; } 50% { transform: translate(15px, -12px) scale(1.08); opacity: 0.9; } }
+
+    .press { transition: transform 0.2s var(--spring-fast), opacity 0.15s; }
+    .press:active { transform: scale(0.94); opacity: 0.85; }
+
+    @keyframes appOpen { 0% { transform: scale(0.25); opacity: 0; border-radius: 60px; } 100% { transform: scale(1); opacity: 1; border-radius: 0; } }
+    @keyframes ccIn { 0% { transform: translateY(-8%) scale(0.96); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+    @keyframes widgetIn { 0% { transform: translateY(12px) scale(0.96); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+    @keyframes shutter { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+    @keyframes breathe { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+    @keyframes loadBar { 0% { left: -60%; } 100% { left: 120%; } }
+    @keyframes scaleIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+    .photo-snap { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+    .photo-snap > * { scroll-snap-align: center; flex-shrink: 0; width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="boot-skeleton" class="boot-skeleton">
+    <div class="logo">PingUI</div>
+  </div>
+
+  <div id="root"></div>
+
+  <script src="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+  <script type="text/babel" data-presets="react">
+  const { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } = React;
+
+  // ════════════════════════════════════════════════
+  // PingUI Store
+  // ════════════════════════════════════════════════
+  const DEFAULT_SYSTEM = {
+    version: '2.0.0', build: 'PingUI 2026B', systemName: 'PingUI',
+    deviceName: 'Ping Phone', model: 'Ping Pro',
+    storageTotal: 128, storageUsed: 42.7, cpu: 'Ping A1',
+    resolution: '1170 x 2532',
+    wifi: true, bluetooth: true, airplane: false, darkMode: true,
+    flashlight: false, muted: false, rotationLock: false,
+    brightness: 75, volume: 60,
+    developerMode: false, animSpeed: 1,
+    wallpaper: 0, language: '简体中文',
+  };
+
+  const WALLPAPERS = [
+    { name: '星云紫', bg: 'radial-gradient(ellipse at 30% 20%, rgba(139,92,246,0.55) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(236,72,153,0.38) 0%, transparent 50%), linear-gradient(180deg, #0a0a1a 0%, #1a1033 50%, #0d0d1a 100%)', orbs: true },
+    { name: '极光绿', bg: 'radial-gradient(ellipse at 20% 70%, rgba(16,185,129,0.45) 0%, transparent 45%), radial-gradient(ellipse at 80% 30%, rgba(59,130,246,0.38) 0%, transparent 45%), linear-gradient(180deg, #0a1628 0%, #0d1f35 50%, #081020 100%)', orbs: true },
+    { name: '日落橙', bg: 'radial-gradient(ellipse at 50% 100%, rgba(251,146,60,0.55) 0%, transparent 50%), radial-gradient(ellipse at 20% 30%, rgba(239,68,68,0.38) 0%, transparent 40%), linear-gradient(180deg, #1e1b4b 0%, #3b0764 30%, #7c2d12 70%, #78350f 100%)', orbs: true },
+    { name: '深海蓝', bg: 'radial-gradient(ellipse at 30% 100%, rgba(14,165,233,0.48) 0%, transparent 50%), radial-gradient(ellipse at 70% 0%, rgba(59,130,246,0.38) 0%, transparent 40%), linear-gradient(180deg, #020617 0%, #0c1e3d 50%, #020617 100%)', orbs: true },
+    { name: '纯黑', bg: 'linear-gradient(180deg, #000 0%, #050505 100%)', orbs: false },
+    { name: '玫瑰金', bg: 'radial-gradient(ellipse at 70% 20%, rgba(244,114,182,0.45) 0%, transparent 45%), radial-gradient(ellipse at 30% 80%, rgba(251,191,36,0.32) 0%, transparent 45%), linear-gradient(180deg, #1a0a14 0%, #2d1530 50%, #0f0a1a 100%)', orbs: true },
+  ];
+
+  const PingUIContext = createContext(null);
+  function usePingUI() {
+    const ctx = useContext(PingUIContext);
+    if (!ctx) throw new Error('usePingUI must be inside PingUIProvider');
+    return ctx;
+  }
+
+  function loadLS(key, def) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) return { ...def, ...JSON.parse(raw) };
+    } catch(e) {}
+    return def;
+  }
+  function saveLS(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+  }
+
+  function PingUIProvider({ children }) {
+    const [system, setSystem] = useState(() => loadLS('pingui_system', DEFAULT_SYSTEM));
+    const [photos, setPhotos] = useState(() => loadLS('pingui_photos', []));
+    const [widgets, setWidgets] = useState(() => loadLS('pingui_widgets', [
+      { id: 'w1', type: 'clock', size: 'medium' },
+      { id: 'w2', type: 'weather', size: 'medium' },
+      { id: 'w3', type: 'calendar', size: 'small' },
+      { id: 'w4', type: 'battery', size: 'small' },
+    ]));
+
+    const [activeApp, setActiveApp] = useState(null);
+    const [ccOpen, setCcOpen] = useState(false);
+    const [screenshot, setScreenshot] = useState(null);
+
+    useEffect(() => saveLS('pingui_system', system), [system]);
+    useEffect(() => saveLS('pingui_photos', photos), [photos]);
+    useEffect(() => saveLS('pingui_widgets', widgets), [widgets]);
+
+    const toggle = useCallback(k => setSystem(s => ({ ...s, [k]: !s[k] })), []);
+    const setSetting = useCallback((k, v) => setSystem(s => ({ ...s, [k]: v })), []);
+
+    const addPhoto = useCallback(data => {
+      const p = { id: Date.now(), data, date: new Date().toISOString() };
+      setPhotos(ps => [p, ...ps]);
+      return p;
+    }, []);
+    const deletePhoto = useCallback(id => setPhotos(ps => ps.filter(p => p.id !== id)), []);
+    const toggleFlashlight = useCallback(() => setSystem(s => ({ ...s, flashlight: !s.flashlight })), []);
+
+    const takeScreenshot = useCallback(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 390; canvas.height = 844;
+      const ctx = canvas.getContext('2d');
+      const g = ctx.createLinearGradient(0, 0, 0, 844);
+      g.addColorStop(0, '#0a0a1a'); g.addColorStop(1, '#1a1a2e');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 390, 844);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 48px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('PingUI', 195, 400);
+      ctx.font = '22px -apple-system, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText(new Date().toLocaleString(), 195, 440);
+      const url = canvas.toDataURL();
+      addPhoto(url);
+      setScreenshot(url);
+      setTimeout(() => setScreenshot(null), 2000);
+    }, [addPhoto]);
+
+    const resetSystem = useCallback(() => {
+      setSystem(DEFAULT_SYSTEM);
+      setPhotos([]);
+    }, []);
+
+    const value = { system, setSystem, toggle, setSetting, photos, addPhoto, deletePhoto, widgets, setWidgets,
+      activeApp, setActiveApp, ccOpen, setCcOpen, flashlight: system.flashlight,
+      toggleFlashlight, takeScreenshot, screenshot, resetSystem,
+    };
+
+    return <PingUIContext.Provider value={value}>{children}</PingUIContext.Provider>;
+  }
+
+  // ════════════════════════════════════════════════
+  // Icons (SVG 内联)
+  // ════════════════════════════════════════════════
+  const IconCamera = ({ size = 48 }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64">
+      <defs><linearGradient id="camBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#6366F1"/><stop offset="100%" stopColor="#8B5CF6"/></linearGradient></defs>
+      <rect x="6" y="14" width="52" height="40" rx="12" fill="url(#camBg)"/>
+      <rect x="0" y="22" width="14" height="8" rx="3" fill="url(#camBg)" opacity="0.7"/>
+      <circle cx="32" cy="34" r="14" fill="#0f0a2e"/>
+      <circle cx="32" cy="34" r="11" fill="#312e81"/>
+      <circle cx="32" cy="34" r="6" fill="#1e1b4b"/>
+      <circle cx="28" cy="30" r="3" fill="rgba(255,255,255,0.4)"/>
+      <circle cx="49" cy="22" r="3" fill="#fcd34d" opacity="0.8"/>
+    </svg>
+  );
+
+  const IconPhotos = ({ size = 48 }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64">
+      <defs><linearGradient id="phBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F472B6"/><stop offset="50%" stopColor="#A78BFA"/><stop offset="100%" stopColor="#60A5FA"/></linearGradient></defs>
+      <rect x="4" y="8" width="56" height="48" rx="12" fill="url(#phBg)"/>
+      <circle cx="20" cy="24" r="5" fill="#fff" opacity="0.9"/>
+      <path d="M8 50l14-20 12 16 10-12 12 16H8z" fill="rgba(255,255,255,0.9)"/>
+    </svg>
+  );
+
+  const IconSettings = ({ size = 48 }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64">
+      <defs><linearGradient id="seBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#9CA3AF"/><stop offset="100%" stopColor="#6B7280"/></linearGradient></defs>
+      <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#seBg)"/>
+      <g transform="translate(32,32)">
+        {[0,45,90,135,180,225,270,315].map((d,i) => (<rect key={i} x={-2} y={-22} width={4} height={6} rx={2} fill="#fff" transform={`rotate(${d})`}/>))}
+      </g>
+      <circle cx="32" cy="32" r="14" fill="none" stroke="#fff" strokeWidth="4"/>
+      <circle cx="32" cy="32" r="8" fill="#fff"/>
+    </svg>
+  );
+
+  const IconBrowser = ({ size = 48 }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64">
+      <defs><linearGradient id="brBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#0EA5E9"/><stop offset="100%" stopColor="#0284C7"/></linearGradient></defs>
+      <circle cx="32" cy="32" r="28" fill="url(#brBg)"/>
+      <circle cx="32" cy="32" r="20" fill="#fff"/>
+      <polygon points="32,16 38,28 32,32 26,28" fill="#F43F5E"/>
+      <polygon points="32,48 38,36 32,32 26,36" fill="#E5E7EB"/>
+      <circle cx="32" cy="32" r="3" fill="#334155"/>
+    </svg>
+  );
+
+  const IconIntro = ({ size = 48 }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64">
+      <defs><linearGradient id="inBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#10B981"/><stop offset="100%" stopColor="#059669"/></linearGradient></defs>
+      <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#inBg)"/>
+      <circle cx="32" cy="28" r="10" fill="none" stroke="#fff" strokeWidth="3.5"/>
+      <path d="M18 52 Q32 38 46 52" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"/>
+      <circle cx="32" cy="25" r="2.5" fill="#fff"/>
+    </svg>
+  );
+
+  const IconMessages = ({ size = 48 }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64">
+      <defs><linearGradient id="msBg" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#34D399"/><stop offset="100%" stopColor="#059669"/></linearGradient></defs>
+      <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#msBg)"/>
+      <path d="M16 22 Q32 12 48 22 L48 36 Q32 46 16 36 Z" fill="#fff"/>
+      <path d="M20 36 L26 44 L32 36" fill="#fff"/>
+    </svg>
+  );
+
+  const IconClock = ({ size = 48 }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64">
+      <defs><linearGradient id="clBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#1F2937"/><stop offset="100%" stopColor="#111827"/></linearGradient></defs>
+      <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#clBg)"/>
+      <circle cx="32" cy="32" r="22" fill="#fff" opacity="0.05"/>
+      <circle cx="32" cy="32" r="22" fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.3"/>
+      {[0,90,180,270].map(d => <rect key={d} x="31" y="12" width="2" height="4" rx="1" fill="#fff" transform={`rotate(${d} 32 32)`}/>)}
+      <rect x="31" y="18" width="2" height="14" rx="1" fill="#fff" transform="rotate(-30 32 32)"/>
+      <rect x="31" y="12" width="2" height="20" rx="1" fill="#fff"/>
+      <circle cx="32" cy="32" r="3" fill="#F97316"/>
+    </svg>
+  );
+
+  const IconCalculator = ({ size = 48 }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64">
+      <defs><linearGradient id="caBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F97316"/><stop offset="100%" stopColor="#EA580C"/></linearGradient></defs>
+      <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#caBg)"/>
+      <rect x="12" y="12" width="40" height="12" rx="4" fill="rgba(0,0,0,0.3)"/>
+      <text x="48" y="22" textAnchor="end" fill="#fff" fontSize="12" fontFamily="monospace" fontWeight="bold">0</text>
+      <g fill="rgba(255,255,255,0.9)">
+        <circle cx="18" cy="34" r="3"/><circle cx="32" cy="34" r="3"/><circle cx="46" cy="34" r="3"/>
+        <circle cx="18" cy="46" r="3"/><circle cx="32" cy="46" r="3"/><circle cx="46" cy="46" r="3" fill="#fff"/>
+      </g>
+    </svg>
+  );
+
+  // 状态栏 & 小图标
+  const IconWifi = ({ size = 22, color = '#fff' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M12 18.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" fill={color}/>
+      <path d="M7 14.5a7 7 0 0110 0" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      <path d="M3.5 11a12 12 0 0117 0" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      <path d="M0.5 7.5a17 17 0 0123 0" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+
+  const IconBluetooth = ({ size = 22, color = '#fff' }) => (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M10 4l10 10-5 4 5 4-10 10V4z" fill={color}/>
+    </svg>
+  );
+
+  const IconAirplane = ({ size = 22, color = '#fff' }) => (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M21 6l-7 8-4-2-3 1 6 5-1 4-3-2-3 2 2-5-4-3 2-1 4 2 4-3 2-3z" fill={color}/>
+    </svg>
+  );
+
+  const IconTorch = ({ size = 22, color = '#fff' }) => (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="8" y="6" width="12" height="8" rx="2" fill={color} opacity="0.9"/>
+      <rect x="10" y="14" width="8" height="10" rx="2" fill={color} opacity="0.7"/>
+    </svg>
+  );
+
+  const IconMoon = ({ size = 22, color = '#fff' }) => (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M20 18.5A8.5 8.5 0 019.5 8a8 8 0 1014 12 8.5 8.5 0 01-3.5 -1.5z" fill={color}/>
+    </svg>
+  );
+
+  const IconScreenshot = ({ size = 22, color = '#fff' }) => (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="5" y="3" width="18" height="22" rx="3" stroke={color} strokeWidth="2" fill="none"/>
+      <rect x="9" y="7" width="10" height="6" rx="1" fill={color} opacity="0.9"/>
+      <circle cx="14" cy="20" r="2" fill={color}/>
+    </svg>
+  );
+
+  const IconRotate = ({ size = 22, color = '#fff' }) => (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M14 4v4M14 24v-4M4 14H0M28 14h-4M6.5 6.5l2.8 2.8M21.5 21.5l-2.8-2.8M6.5 21.5l2.8-2.8M21.5 6.5l-2.8 2.8" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+
+  const IconBack = ({ size = 20, color = '#fff' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M15 6l-6 6 6 6" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+
+  const IconChevron = ({ size = 12, color = 'rgba(255,255,255,0.3)' }) => (
+    <svg width={size} height={size * 1.6} viewBox="0 0 10 16" fill="none">
+      <path d="M2 2l6 6-6 6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+
+  const IconTrash = ({ size = 20, color = '#fff' }) => (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M3 5h14M7 5V3h6v2M5 5l1 12h8l1-12" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+
+  const IconShare = ({ size = 20, color = '#fff' }) => (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M10 2v12M6 6l4-4 4 4M4 14v3a1 1 0 001 1h10a1 1 0 001-1v-3" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+
+  // ════════════════════════════════════════════════
+  // BootScreen
+  // ════════════════════════════════════════════════
+  function BootScreen({ onComplete }) {
+    const [phase, setPhase] = useState(0);
+
+    useEffect(() => {
+      const skel = document.getElementById('boot-skeleton');
+      if (skel) skel.style.display = 'none';
+      const t1 = setTimeout(() => setPhase(1), 200);
+      const t2 = setTimeout(() => setPhase(2), 1400);
+      const t3 = setTimeout(() => setPhase(3), 1900);
+      const t4 = setTimeout(() => onComplete?.(), 2300);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+    }, [onComplete]);
+
+    return (
+      <div style={{
+        position: 'absolute', inset: 0, background: '#000',
+        zIndex: 1000, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        transition: 'opacity 0.4s ease',
+        opacity: phase >= 3 ? 0 : 1,
+        pointerEvents: 'none',
+        overflow: 'hidden',
+      }}>
+        <div className="orb" style={{
+          width: 280, height: 280,
+          background: 'radial-gradient(circle, rgba(139,92,246,0.18), transparent 70%)',
+          top: '30%', left: '50%', marginLeft: -140, marginTop: -140,
+          animation: 'orbFloat 4s ease-in-out infinite',
+        }} />
+
+        {phase >= 1 && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            animation: 'widgetIn 0.9s var(--spring-fast) 0.1s both',
+          }}>
+            <div style={{
+              width: 84, height: 84, borderRadius: 24,
+              background: 'linear-gradient(135deg, #6366F1, #A855F7 50%, #EC4899)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: 28,
+              boxShadow: '0 8px 40px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
+              position: 'relative',
+            }}>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 24, background: 'linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 40%)' }} />
+              <span style={{ fontSize: 38, fontWeight: 800, color: '#fff', letterSpacing: -1, position: 'relative', zIndex: 1 }}>P</span>
+            </div>
+            <span style={{ fontWeight: 700, fontSize: 42, color: '#fff', letterSpacing: -0.8, lineHeight: 1 }}>PingUI</span>
+          </div>
+        )}
+
+        {phase >= 2 && (
+          <div style={{ position: 'absolute', bottom: 110, animation: 'widgetIn 0.5s ease-out 0.3s both' }}>
+            <div style={{ width: 140, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: '100%', background: 'linear-gradient(90deg, #8B5CF6, #EC4899)', animation: 'loadBar 0.8s var(--ease-out) both' }} />
+            </div>
+            <div style={{ textAlign: 'center', marginTop: 12, fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 0.5 }}>版本 2.0 · Liquid Glass</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════
+  // LockScreen
+  // ════════════════════════════════════════════════
+  function LockScreen({ onUnlock, wallpaperIdx }) {
+    const { system } = usePingUI();
+    const [time, setTime] = useState(new Date());
+    const [dragY, setDragY] = useState(0);
+    const startY = useRef(null);
+    const dragging = useRef(false);
+
+    useEffect(() => { const i = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(i); }, []);
+
+    const wp = WALLPAPERS[wallpaperIdx] || WALLPAPERS[0];
+    const h = time.getHours().toString().padStart(2, '0');
+    const m = time.getMinutes().toString().padStart(2, '0');
+    const days = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    const dateStr = `${days[time.getDay()]} ${time.getMonth()+1}月${time.getDate()}日`;
+    const prog = Math.min(dragY / 200, 1);
+
+    const onDown = y => { startY.current = y; dragging.current = true; };
+    const onMove = y => {
+      if (!dragging.current || startY.current === null) return;
+      const d = startY.current - y;
+      if (d > 0) setDragY(Math.min(d, 200));
+    };
+    const onUp = () => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      if (dragY > 100) { onUnlock?.(); } else { setDragY(0); }
+      startY.current = null;
+    };
+
+    return (
+      <div
+        onTouchStart={e => onDown(e.touches[0].clientY)}
+        onTouchMove={e => onMove(e.touches[0].clientY)}
+        onTouchEnd={onUp}
+        onMouseDown={e => { onDown(e.clientY); }}
+        onMouseMove={e => { if (dragging.current) onMove(e.clientY); }}
+        onMouseUp={onUp}
+        onMouseLeave={() => { if (dragging.current) onUp(); }}
+        style={{
+          position: 'absolute', inset: 0, zIndex: 500, cursor: 'grab',
+          transform: `translateY(-${dragY}px)`,
+          opacity: 1 - prog * 0.4,
+          transition: dragging.current ? 'none' : 'all 0.35s var(--ease-out)',
+        }}
+      >
+        <div style={{ position: 'absolute', inset: 0, background: wp.bg }}>
+          {wp.orbs && (
+            <>
+              <div className="orb" style={{ width: 200, height: 200, background: 'radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%)', top: '8%', left: '-8%', animation: 'orbFloat 8s ease-in-out infinite' }} />
+              <div className="orb" style={{ width: 160, height: 160, background: 'radial-gradient(circle, rgba(236,72,153,0.28), transparent 70%)', bottom: '22%', right: '-6%', animation: 'orbFloat 10s ease-in-out infinite reverse' }} />
+            </>
+          )}
+        </div>
+
+        <div style={{ height: 'var(--ios-safe-top)', position: 'relative', zIndex: 2 }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 8, color: '#fff', position: 'relative', zIndex: 2, transform: `translateY(-${dragY * 0.3}px)`, opacity: 1 - prog * 0.5, transition: dragging.current ? 'none' : 'all 0.3s' }}>
+          <span style={{ fontSize: 15, fontWeight: 500, opacity: 0.85, marginBottom: 2 }}>{dateStr}</span>
+          <span style={{ fontSize: 86, fontWeight: 200, letterSpacing: -3, lineHeight: 1, fontVariantNumeric: 'tabular-nums', textShadow: '0 2px 30px rgba(0,0,0,0.3)' }}>{h}:{m}</span>
+        </div>
+
+        <div style={{ flex: 1, marginTop: 18, padding: '0 14px', position: 'relative', zIndex: 2, transform: `translateY(-${dragY * 0.15}px)`, opacity: 1 - prog * 0.6, transition: dragging.current ? 'none' : 'all 0.3s' }}>
+          <div className="lg" style={{ borderRadius: 22, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ fontSize: 30, zIndex: 1 }}>☀️</div>
+            <div style={{ flex: 1, zIndex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)', marginBottom: 2 }}>天气 · 北京</div>
+              <div style={{ fontSize: 20, fontWeight: 600, color: '#fff' }}>晴朗 · 22°</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>最高 26° / 最低 15°</div>
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', alignSelf: 'flex-start', zIndex: 1 }}>现在</div>
+          </div>
+
+          <div className="lg" style={{ borderRadius: 22, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 11, flexShrink: 0, background: 'linear-gradient(135deg, #ec4899, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="#fff"><path d="M4 3l10 9-10 9V3z"/></svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0, zIndex: 1 }}>
+              <div style={{ color: '#fff', fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Ambient Dreams</div>
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>PingUI Sound</div>
+            </div>
+            <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 20, zIndex: 1 }}>
+              {[8, 16, 10, 18, 12].map((hh, i) => (<div key={i} style={{ width: 2.5, height: hh, background: '#fff', borderRadius: 1.5, opacity: 0.7, animation: `breathe ${0.5 + i * 0.12}s ease-in-out infinite` }} />))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ position: 'absolute', bottom: 'calc(var(--ios-safe-bottom) + 60px)', left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '0 32px', zIndex: 2, opacity: 1 - prog * 0.5, transform: `translateY(-${dragY * 0.1}px)`, transition: dragging.current ? 'none' : 'all 0.3s' }}>
+          <div className="press" style={{ width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: 'rgba(30,30,38,0.5)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', border: '0.5px solid rgba(255,255,255,0.12)' }}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="#fff"><rect x="7" y="4" width="8" height="5" rx="1.5"/><rect x="8.5" y="9" width="5" height="9" rx="1.5" fill="rgba(255,255,255,0.7)"/></svg>
+          </div>
+          <div className="press" style={{ width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: 'rgba(30,30,38,0.5)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', border: '0.5px solid rgba(255,255,255,0.12)' }}>
+            <svg width="22" height="22" viewBox="0 0 22 22"><rect x="3" y="6" width="16" height="12" rx="3" fill="#fff"/><circle cx="11" cy="12" r="4" fill="#1a1a2e"/><rect x="7" y="3" width="8" height="3" rx="1.5" fill="#fff"/></svg>
+          </div>
+        </div>
+
+        <div style={{ position: 'absolute', bottom: 'calc(var(--ios-safe-bottom) + 16px)', left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, zIndex: 2, opacity: prog > 0.1 ? 0.5 : 1, transition: 'opacity 0.3s' }}>
+          <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>向上滑动解锁</span>
+          <div style={{ width: 138, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.7)', animation: 'breathe 2.2s ease-in-out infinite' }} />
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════
+  // HomeScreen + Widgets
+  // ════════════════════════════════════════════════
+  const APPS = [
+    { id: 'camera', name: '相机', Icon: IconCamera },
+    { id: 'photos', name: '相册', Icon: IconPhotos },
+    { id: 'browser', name: '浏览器', Icon: IconBrowser },
+    { id: 'settings', name: '设置', Icon: IconSettings },
+    { id: 'intro', name: '功能介绍', Icon: IconIntro },
+    { id: 'messages', name: '信息', Icon: IconMessages },
+    { id: 'clock', name: '时钟', Icon: IconClock },
+    { id: 'calculator', name: '计算器', Icon: IconCalculator },
+  ];
+  const DOCK = ['browser', 'photos', 'camera', 'settings'];
+
+  function WClock() {
+    const [t, setT] = useState(new Date());
+    useEffect(() => { const i = setInterval(() => setT(new Date()), 1000); return () => clearInterval(i); }, []);
+    const days = ['日','一','二','三','四','五','六'];
+    return (
+      <div className="lg" style={{ width: '100%', height: '100%', borderRadius: 22, padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 500, zIndex: 1 }}>时钟 · 周{days[t.getDay()]}</div>
+        <div style={{ fontSize: 44, fontWeight: 200, color: '#fff', fontVariantNumeric: 'tabular-nums', letterSpacing: -1, lineHeight: 1, zIndex: 1 }}>{t.getHours().toString().padStart(2,'0')}:{t.getMinutes().toString().padStart(2,'0')}</div>
+        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, zIndex: 1 }}>{t.getMonth()+1}月{t.getDate()}日 · {t.getSeconds()}秒</div>
+      </div>
+    );
+  }
+
+  function WWeather() {
+    return (
+      <div className="lg" style={{ width: '100%', height: '100%', borderRadius: 22, padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 22, background: 'linear-gradient(135deg, rgba(59,130,246,0.25), rgba(147,51,234,0.18))' }} />
+        <div style={{ color: '#fff', fontSize: 14, fontWeight: 500, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 1 }}>
+          <span>北京</span>
+          <svg width="20" height="20" viewBox="0 0 18 18"><circle cx="9" cy="9" r="3.5" fill="#fbbf24"/>{[0,45,90,135,180,225,270,315].map(d => (<rect key={d} x="8.5" y="1" width="1" height="2.5" rx="0.5" fill="#fbbf24" transform={`rotate(${d} 9 9)`}/>))}</svg>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', zIndex: 1 }}>
+          <div style={{ fontSize: 46, fontWeight: 200, color: '#fff', lineHeight: 1 }}>22°</div>
+          <div style={{ textAlign: 'right', color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 1.6 }}>
+            <div style={{ color: '#fff', fontWeight: 500 }}>晴朗</div>
+            H:26° L:15°
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function WCalendar() {
+    const [today] = useState(new Date());
+    const days = ['日','一','二','三','四','五','六'];
+    return (
+      <div className="lg" style={{ width: '100%', height: '100%', borderRadius: 22, padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+        <div style={{ color: '#FF3B30', fontSize: 12, fontWeight: 600, zIndex: 1 }}>{days[today.getDay()]}</div>
+        <div style={{ fontSize: 34, fontWeight: 300, color: '#fff', lineHeight: 1, zIndex: 1 }}>{today.getDate()}</div>
+        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, zIndex: 1 }}>{today.getMonth()+1}月</div>
+      </div>
+    );
+  }
+
+  function WBattery() {
+    return (
+      <div className="lg" style={{ width: '100%', height: '100%', borderRadius: 22, padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        <div style={{ position: 'relative', width: 46, height: 22, zIndex: 1 }}>
+          <div style={{ position: 'absolute', inset: 0, border: '1.5px solid rgba(255,255,255,0.4)', borderRadius: 5 }} />
+          <div style={{ position: 'absolute', right: -3, top: 7, width: 3, height: 8, background: 'rgba(255,255,255,0.4)', borderRadius: '0 2px 2px 0' }} />
+          <div style={{ position: 'absolute', left: 3, top: 3, bottom: 3, width: '75%', background: 'linear-gradient(90deg, #34D399, #10B981)', borderRadius: 2 }} />
+        </div>
+        <div style={{ color: '#fff', fontSize: 14, fontWeight: 500, zIndex: 1 }}>85%</div>
+        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, zIndex: 1 }}>电池</div>
+      </div>
+    );
+  }
+
+  function WPhotos({ photos, onOpen }) {
+    const latest = photos.slice(0, 4);
+    return (
+      <div onClick={onOpen} className="lg press" style={{ width: '100%', height: '100%', borderRadius: 22, padding: 4, display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 2, cursor: 'pointer' }}>
+        {latest.length > 0 ? latest.map(p => (<div key={p.id} style={{ backgroundImage: `url(${p.data})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: 6, zIndex: 1 }} />)) : [0,1,2,3].map(i => (<div key={i} style={{ background: `linear-gradient(${45+i*30}deg, #667eea, #764ba2)`, borderRadius: 6, zIndex: 1 }} />))}
+      </div>
+    );
+  }
+
+  const WIDGETS = {
+    clock: { C: WClock, size: 'medium' },
+    weather: { C: WWeather, size: 'medium' },
+    calendar: { C: WCalendar, size: 'small' },
+    battery: { C: WBattery, size: 'small' },
+    photos: { C: WPhotos, size: 'small' },
+  };
+
+  function HomeScreen({ onOpenApp }) {
+    const { system, widgets, photos } = usePingUI();
+    const wp = WALLPAPERS[system.wallpaper] || WALLPAPERS[0];
+    const dockApps = DOCK.map(id => APPS.find(a => a.id === id)).filter(Boolean);
+    const otherApps = APPS.filter(a => !DOCK.includes(a.id));
+    const bright = (100 - system.brightness) / 100 * 0.5;
+
+    return (
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ position: 'absolute', inset: 0, background: wp.bg }}>
+          {wp.orbs && (<>
+            <div className="orb" style={{ width: 200, height: 200, background: 'radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%)', top: '6%', left: '-6%', animation: 'orbFloat 9s ease-in-out infinite' }} />
+            <div className="orb" style={{ width: 160, height: 160, background: 'radial-gradient(circle, rgba(236,72,153,0.25), transparent 70%)', bottom: '28%', right: '-6%', animation: 'orbFloat 11s ease-in-out infinite reverse' }} />
+          </>)}
+        </div>
+
+        <div style={{ position: 'absolute', inset: 0, background: '#000', opacity: bright, pointerEvents: 'none', zIndex: 1, transition: 'opacity 0.25s' }} />
+
+        <div style={{ height: 'var(--ios-safe-top)', position: 'relative', zIndex: 2 }} />
+
+        <div style={{ flex: 1, overflow: 'auto', padding: '4px 14px 12px', display: 'flex', flexDirection: 'column', gap: 18, position: 'relative', zIndex: 2 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {widgets.map((w, i) => {
+              const def = WIDGETS[w.type];
+              if (!def) return null;
+              const Comp = def.C;
+              const wide = def.size === 'medium';
+              return (<div key={w.id} style={{ gridColumn: wide ? 'span 2' : 'span 1', height: wide ? 150 : 110, animation: `widgetIn 0.5s var(--ease-io) ${i * 0.06}s both` }}>
+                {w.type === 'photos' ? <Comp photos={photos} onOpen={() => onOpenApp('photos')} /> : <Comp />}
+              </div>);
+            })}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px 10px' }}>
+            {otherApps.map((app, i) => (<AppIcon key={app.id} app={app} delay={0.25 + i * 0.03} onClick={() => onOpenApp(app.id)} />))}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, paddingTop: 2 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.85)' }} />
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />
+          </div>
+          <div style={{ height: 10 }} />
+        </div>
+
+        <div style={{ padding: '0 10px', paddingBottom: 'calc(var(--ios-safe-bottom) + 10px)', position: 'relative', zIndex: 2 }}>
+          <div className="lg" style={{ borderRadius: 30, padding: '13px 14px', display: 'flex', justifyContent: 'space-around', position: 'relative' }}>
+            {dockApps.map((app, i) => (<div key={app.id} style={{ zIndex: 1 }}><AppIcon app={app} delay={0.4 + i * 0.03} onClick={() => onOpenApp(app.id)} dock /></div>))}
+          </div>
+        </div>
+
+        {system.flashlight && (<div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center top, rgba(255,255,200,0.1) 0%, transparent 55%)', pointerEvents: 'none', zIndex: 3, transition: 'opacity 0.3s' }} />)}
+      </div>
+    );
+  }
+
+  function AppIcon({ app, onClick, delay = 0, dock = false }) {
+    const { Icon } = app;
+    return (
+      <div onClick={onClick} className="press" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: dock ? 0 : 8, cursor: 'pointer', animation: `widgetIn 0.5s var(--ease-io) ${delay}s both` }}>
+        <div style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.2))' }}><Icon size={dock ? 52 : 58} /></div>
+        {!dock && (<span style={{ color: '#fff', fontSize: 12, textShadow: '0 1px 3px rgba(0,0,0,0.4)', fontWeight: 400 }}>{app.name}</span>)}
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════
+  // ControlCenter
+  // ════════════════════════════════════════════════
+  function ControlCenter({ visible, onClose }) {
+    const { system, toggle, setSetting, toggleFlashlight, takeScreenshot } = usePingUI();
+    if (!visible) return null;
+
+    return (
+      <div style={{ position: 'absolute', inset: 0, zIndex: 800, background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }} onClick={onClose}>
+        <div onClick={e => e.stopPropagation()} style={{ paddingTop: 'calc(var(--ios-safe-top) + 8px)', padding: 'calc(var(--ios-safe-top) + 8px) 12px 12px', animation: 'ccIn 0.45s var(--ease-out) both' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+            <div style={{ width: 36, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.35)' }} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div className="lg" style={{ borderRadius: 26, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, zIndex: 1 }}>
+                <CCToggle active={system.wifi} color="#007AFF" onClick={() => toggle('wifi')}><IconWifi size={18} color="#fff" /></CCToggle>
+                <CCToggle active={system.bluetooth} color="#007AFF" onClick={() => toggle('bluetooth')}><IconBluetooth size={18} color="#fff" /></CCToggle>
+              </div>
+              <div style={{ display: 'flex', gap: 10, zIndex: 1 }}>
+                <CCToggle active={!system.airplane} color="#10B981" offColor="#FF3B30" onClick={() => toggle('airplane')}><IconAirplane size={18} color="#fff" /></CCToggle>
+                <CCToggle active={!system.muted} color="#FF9500" offColor="#FF3B30" onClick={() => toggle('muted')}>
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="#fff">
+                    <path d="M2.5 7.5v3h2.5l3 3V4.5L5 7.5h-2.5z"/>
+                    {system.muted && (<><line x1="12" y1="5" x2="16" y2="13" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/><line x1="16" y1="5" x2="12" y2="13" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></>)}
+                  </svg>
+                </CCToggle>
+              </div>
+            </div>
+
+            <div className="lg" style={{ borderRadius: 26, padding: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', zIndex: 1 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg, #ec4899, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="#fff"><path d="M3 2l8 7-8 7V2z"/></svg>
+                </div>
+                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                  <div style={{ color: '#fff', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Ambient Dreams</div>
+                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>PingUI Sound</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 20, alignItems: 'center', zIndex: 1 }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="#fff"><path d="M9 2L2 8l7 6V2z"/><rect x="11" y="2" width="2" height="12" rx="1"/></svg>
+                <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="#000"><path d="M2 1.5l7 5-7 5v-10z"/></svg>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="#fff"><path d="M7 2l7 6-7 6V2z"/><rect x="3" y="2" width="2" height="12" rx="1"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <VSlider label="亮度" value={system.brightness} onChange={v => setSetting('brightness', v)} gradient="linear-gradient(180deg, #fff, #e5e5e5)" />
+            <VSlider label="音量" value={system.volume} onChange={v => setSetting('volume', v)} gradient="linear-gradient(180deg, #a78bfa, #8b5cf6)" />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+            <CCButton active={system.flashlight} activeColor="#FFD60A" onClick={toggleFlashlight} label="手电筒"><IconTorch size={22} color="#fff" /></CCButton>
+            <CCButton active={!system.rotationLock} activeColor="#FF3B30" onClick={() => toggle('rotationLock')} label="旋转锁定"><IconRotate size={22} color="#fff" /></CCButton>
+            <CCButton active={system.darkMode} activeColor="#5E5CE6" onClick={() => toggle('darkMode')} label="深色模式"><IconMoon size={22} color="#fff" /></CCButton>
+            <CCButton onClick={takeScreenshot} label="截图"><IconScreenshot size={22} color="#fff" /></CCButton>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function CCToggle({ active, onClick, children, color = '#007AFF', offColor = 'rgba(120,120,128,0.36)' }) {
+    return (
+      <div onClick={onClick} className="press" style={{ width: 40, height: 40, borderRadius: '50%', background: active ? color : offColor, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.25s var(--spring-fast)', boxShadow: active ? `0 0 12px ${color}60` : 'none', position: 'relative' }}>{children}</div>
+    );
+  }
+
+  function CCButton({ active, onClick, children, label, activeColor = '#fff' }) {
+    return (
+      <div onClick={onClick} className="lg press" style={{ borderRadius: 22, padding: '12px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer', position: 'relative', background: active ? activeColor : undefined, backdropFilter: active ? 'none' : undefined, WebkitBackdropFilter: active ? 'none' : undefined, transition: 'all 0.25s var(--spring-fast)' }}>
+        <div style={{ width: 34, height: 34, borderRadius: '50%', background: active ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s', zIndex: 1 }}>{children}</div>
+        <span style={{ color: active ? '#fff' : 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: 500, zIndex: 1 }}>{label}</span>
+      </div>
+    );
+  }
+
+  function VSlider({ value, onChange, gradient = 'linear-gradient(180deg, #fff, #e5e5e5)', label }) {
+    const ref = useRef(null);
+    const dragging = useRef(false);
+
+    const onMove = useCallback(y => {
+      if (!ref.current || !dragging.current) return;
+      const r = ref.current.getBoundingClientRect();
+      const p = Math.max(0, Math.min(100, (1 - (y - r.top) / r.height) * 100));
+      onChange(Math.round(p));
+    }, [onChange]);
+
+    useEffect(() => {
+      const up = () => { dragging.current = false; };
+      const mv = e => { const y = e.touches ? e.touches[0].clientY : e.clientY; onMove(y); };
+      window.addEventListener('mouseup', up);
+      window.addEventListener('touchend', up);
+      window.addEventListener('mousemove', mv);
+      window.addEventListener('touchmove', mv);
+      return () => {
+        window.removeEventListener('mouseup', up);
+        window.removeEventListener('touchend', up);
+        window.removeEventListener('mousemove', mv);
+        window.removeEventListener('touchmove', mv);
+      };
+    }, [onMove]);
+
+    return (
+      <div className="lg" style={{ borderRadius: 26, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 1 }}>
+          <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{label}</span>
+          <span style={{ color: '#fff', fontSize: 12, fontWeight: 500 }}>{value}%</span>
+        </div>
+        <div ref={ref} onMouseDown={e => { dragging.current = true; onMove(e.clientY); }} onTouchStart={e => { dragging.current = true; onMove(e.touches[0].clientY); }} style={{ height: 130, borderRadius: 14, background: 'rgba(255,255,255,0.12)', position: 'relative', cursor: 'pointer', zIndex: 1 }}>
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${value}%`, background: gradient, borderRadius: 14, transition: dragging.current ? 'none' : 'height 0.2s var(--ease-io)' }} />
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════
+  // App: Camera
+  // ════════════════════════════════════════════════
+  function AppCamera({ onClose }) {
+    const { addPhoto } = usePingUI();
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const streamRef = useRef(null);
+    const [facing, setFacing] = useState('user');
+    const [flash, setFlash] = useState(false);
+    const [flashFx, setFlashFx] = useState(false);
+    const [lastPhoto, setLastPhoto] = useState(null);
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [mode, setMode] = useState('photo');
+
+    useEffect(() => {
+      let mounted = true;
+      async function start() {
+        try {
+          setLoading(true); setError(null);
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 } }, audio: false });
+          if (!mounted) { stream.getTracks().forEach(t => t.stop()); return; }
+          streamRef.current = stream;
+          if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+          setLoading(false);
+        } catch(e) {
+          if (mounted) { setError('无法访问摄像头\n请检查浏览器权限'); setLoading(false); }
+        }
+      }
+      start();
+      return () => {
+        mounted = false;
+        if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+      };
+    }, [facing]);
+
+    const takePhoto = useCallback(() => {
+      if (!videoRef.current || loading || error) return;
+      setFlashFx(true);
+      setTimeout(() => setFlashFx(false), 280);
+      const v = videoRef.current;
+      const c = canvasRef.current;
+      const ctx = c.getContext('2d');
+      const w = v.videoWidth || 640, h = v.videoHeight || 480;
+      c.width = w; c.height = h;
+      if (facing === 'user') { ctx.translate(w, 0); ctx.scale(-1, 1); }
+      ctx.drawImage(v, 0, 0, w, h);
+      if (flash) { ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(0, 0, w, h); }
+      const url = c.toDataURL('image/jpeg', 0.85);
+      const p = addPhoto(url);
+      setLastPhoto(p);
+      if (navigator.vibrate) navigator.vibrate(15);
+    }, [facing, flash, addPhoto, loading, error]);
+
+    const switchCam = useCallback(() => { setFacing(f => f === 'user' ? 'environment' : 'user'); }, []);
+
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: '#000', display: 'flex', flexDirection: 'column', animation: 'appOpen 0.45s var(--ease-out) both', zIndex: 200 }}>
+        <div style={{ flex: 1, position: 'relative', background: '#000', overflow: 'hidden' }}>
+          <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: facing === 'user' ? 'scaleX(-1)' : 'scaleX(1)', transition: 'transform 0.3s' }} />
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+          {flashFx && <div style={{ position: 'absolute', inset: 0, background: '#fff', animation: 'shutter 0.28s ease-out both' }} />}
+
+          {loading && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', color: '#fff', fontSize: 15, opacity: 0.7 }}>正在启动相机...</div>}
+
+          {error && <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', padding: 32, gap: 16 }}>
+            <div style={{ color: '#fff', fontSize: 15, textAlign: 'center', whiteSpace: 'pre-line', lineHeight: 1.5 }}>{error}</div>
+            <button onClick={() => location.reload()} style={{ padding: '10px 22px', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 22, color: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>重试</button>
+          </div>}
+
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 'calc(var(--ios-safe-top) + 8px)', paddingLeft: 14, paddingRight: 14, paddingBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(180deg, rgba(0,0,0,0.4), transparent)', zIndex: 10 }}>
+            <button onClick={onClose} className="press" style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: '0.5px solid rgba(255,255,255,0.12)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><IconBack size={18} /></button>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <button onClick={() => setFlash(f => !f)} className="press" style={{ width: 38, height: 38, borderRadius: '50%', background: flash ? '#FFD60A' : 'rgba(0,0,0,0.4)', border: flash ? 'none' : '0.5px solid rgba(255,255,255,0.12)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.25s var(--spring-fast)' }}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill={flash ? '#000' : '#fff'}><path d="M10 2L3 11h5l-1 5 7-9h-5l1-5z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ background: '#000', position: 'relative', zIndex: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 28, padding: '14px 0 18px' }}>
+            {[{k:'video', l:'视频'}, {k:'photo', l:'照片'}, {k:'portrait', l:'人像'}].map(m => (
+              <button key={m.k} onClick={() => setMode(m.k)} className="press" style={{ background: 'none', border: 'none', color: m.k === mode ? '#FFD60A' : 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: m.k === mode ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit' }}>{m.l}</button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px 20px' }}>
+            <div onClick={() => onClose?.('photos')} className="press" style={{ width: 48, height: 48, borderRadius: 12, overflow: 'hidden', background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.25)', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {lastPhoto ? (<img src={lastPhoto.data} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />) : (<IconPhotos size={24} />)}
+            </div>
+
+            <button onClick={takePhoto} disabled={loading || error} className="press" style={{ width: 72, height: 72, borderRadius: '50%', background: '#fff', cursor: loading || error ? 'not-allowed' : 'pointer', opacity: loading || error ? 0.4 : 1, position: 'relative', padding: 0, border: 'none', boxShadow: '0 0 0 4px rgba(255,255,255,0.25)' }}>
+              <div style={{ position: 'absolute', top: -8, left: -8, right: -8, bottom: -8, border: '3px solid #fff', borderRadius: '50%' }} />
+            </button>
+
+            <button onClick={switchCam} disabled={loading || error} className="press" style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '0.5px solid rgba(255,255,255,0.2)', cursor: loading || error ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: loading || error ? 0.4 : 1, flexShrink: 0, padding: 0 }}>
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path d="M14 3h5v5M8 19H3v-5M19 3l-7 7M3 19l7-7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M19 8V3h-5M3 14v5h5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          </div>
+          <div style={{ height: 'var(--ios-safe-bottom)' }} />
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════
+  // App: Photos
+  // ════════════════════════════════════════════════
+  function AppPhotos({ onClose }) {
+    const { photos, deletePhoto } = usePingUI();
+    const [view, setView] = useState('grid');
+    const [idx, setIdx] = useState(0);
+    const scrollRef = useRef(null);
+    const [showBars, setShowBars] = useState(true);
+
+    const openFull = i => { setIdx(i); setView('full'); setShowBars(true); };
+
+    const onScroll = useCallback(() => {
+      if (!scrollRef.current || view !== 'full') return;
+      const w = scrollRef.current.clientWidth;
+      const ni = Math.round(scrollRef.current.scrollLeft / w);
+      if (ni !== idx) setIdx(ni);
+    }, [idx, view]);
+
+    useEffect(() => {
+      if (view === 'full' && scrollRef.current) {
+        const w = scrollRef.current.clientWidth;
+        scrollRef.current.scrollTo({ left: idx * w, behavior: 'smooth' });
+      }
+    }, [idx, view]);
+
+    const handleDelete = () => {
+      if (!photos[idx]) return;
+      const id = photos[idx].id;
+      deletePhoto(id);
+      if (photos.length <= 1) setView('grid');
+      else if (idx >= photos.length - 1) setIdx(photos.length - 2);
+    };
+
+    const fmt = iso => { const d = new Date(iso); return `${d.getMonth()+1}月${d.getDate()}日 ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`; };
+
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: '#000', display: 'flex', flexDirection: 'column', animation: 'appOpen 0.45s var(--ease-out) both', zIndex: 200 }}>
+        {view === 'grid' ? (
+          <>
+            <div className="lg" style={{ paddingTop: 'var(--ios-safe-top)', paddingLeft: 16, paddingRight: 16, paddingBottom: 12, display: 'flex', alignItems: 'center', zIndex: 10, position: 'relative', borderRadius: 0, background: 'rgba(20,20,28,0.75)' }}>
+              <button onClick={onClose} className="press" style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'none', border: 'none', color: '#007AFF', fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', padding: 0, zIndex: 1 }}><IconBack size={20} color="#007AFF" /></button>
+              <div style={{ flex: 1, textAlign: 'center', color: '#fff', fontSize: 17, fontWeight: 600, zIndex: 1 }}>所有照片 ({photos.length})</div>
+              <div style={{ width: 20 }} />
+            </div>
+
+            <div style={{ flex: 1, overflow: 'auto', padding: 1.5 }}>
+              {photos.length === 0 ? (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, color: 'rgba(255,255,255,0.5)' }}>
+                  <IconPhotos size={72} />
+                  <div style={{ fontSize: 16 }}>暂无照片</div>
+                  <div style={{ fontSize: 13, textAlign: 'center', lineHeight: 1.6, opacity: 0.7 }}>使用相机拍摄照片<br/>照片会自动保存在这里</div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5 }}>
+                  {photos.map((p, i) => (<div key={p.id} onClick={() => openFull(i)} className="press" style={{ aspectRatio: '1 / 1', overflow: 'hidden', cursor: 'pointer', background: '#111' }}>
+                    <img src={p.data} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                  </div>))}
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, transition: 'transform 0.3s var(--ease-out), opacity 0.3s', transform: showBars ? 'translateY(0)' : 'translateY(-100%)', opacity: showBars ? 1 : 0 }}>
+              <div className="lg" style={{ paddingTop: 'var(--ios-safe-top)', paddingLeft: 16, paddingRight: 16, paddingBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', borderRadius: 0, background: 'rgba(0,0,0,0.5)' }}>
+                <button onClick={() => setView('grid')} className="press" style={{ padding: '7px 14px', background: 'rgba(255,255,255,0.12)', border: '0.5px solid rgba(255,255,255,0.15)', borderRadius: 18, color: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', zIndex: 1 }}>返回</button>
+                <span style={{ color: '#fff', fontSize: 13, opacity: 0.7, zIndex: 1 }}>{idx + 1} / {photos.length}</span>
+                <button className="press" style={{ padding: '7px 14px', background: 'rgba(255,255,255,0.12)', border: '0.5px solid rgba(255,255,255,0.15)', borderRadius: 18, color: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', zIndex: 1 }}>选择</button>
+              </div>
+            </div>
+
+            <div ref={scrollRef} onScroll={onScroll} onClick={() => setShowBars(s => !s)} className="photo-snap" style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', display: 'flex', background: '#000' }}>
+              {photos.map(p => (
+                <div key={p.id} style={{ width: '100%', flexShrink: 0, scrollSnapAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
+                  <img src={p.data} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 4 }} draggable={false} />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20, transition: 'transform 0.3s var(--ease-out), opacity 0.3s', transform: showBars ? 'translateY(0)' : 'translateY(100%)', opacity: showBars ? 1 : 0 }}>
+              <div className="lg" style={{ padding: '14px 20px', paddingBottom: 'calc(var(--ios-safe-bottom) + 14px)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', position: 'relative', borderRadius: 0, background: 'rgba(20,20,28,0.75)' }}>
+                <button className="press" style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, padding: 0 }}><IconShare size={20} /></button>
+                <button className="press" style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, padding: 0 }}>
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" fill="none" stroke="#fff" strokeWidth="1.8"/><path d="M10 6v8M6 10h8" stroke="#fff" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                </button>
+                <button onClick={handleDelete} className="press" style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,59,48,0.2)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, padding: 0 }}><IconTrash size={20} color="#FF3B30" /></button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════
+  // App: Browser
+  // ════════════════════════════════════════════════
+  const QUICK_SITES = [
+    { name: '百度', url: 'https://m.baidu.com', c: 'linear-gradient(135deg, #1E40AF, #3B82F6)' },
+    { name: '必应', url: 'https://cn.bing.com', c: 'linear-gradient(135deg, #008373, #10B981)' },
+    { name: '维基', url: 'https://zh.m.wikipedia.org', c: 'linear-gradient(135deg, #374151, #6B7280)' },
+    { name: 'MDN', url: 'https://developer.mozilla.org/zh-CN/', c: 'linear-gradient(135deg, #000, #333)' },
+  ];
+
+  function AppBrowser({ onClose }) {
+    const [url, setUrl] = useState('');
+    const [curUrl, setCurUrl] = useState('');
+    const [val, setVal] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [hist, setHist] = useState([]);
+    const [hi, setHi] = useState(-1);
+    const [showStart, setShowStart] = useState(true);
+    const inputRef = useRef(null);
+
+    const nav = useCallback(raw => {
+      let target = raw.trim();
+      if (!target) return;
+      if (!/^https?:\/\//i.test(target) && !target.includes('.')) {
+        target = `https://m.baidu.com/s?word=${encodeURIComponent(target)}`;
+      } else if (!/^https?:\/\//i.test(target)) {
+        target = 'https://' + target;
+      }
+      setLoading(true); setError(null); setCurUrl(target); setVal(target); setShowStart(false);
+      setHist(h => { const n = h.slice(0, hi + 1); n.push(target); return n; });
+      setHi(i => i + 1);
+      setTimeout(() => { setLoading(false); setError('该网站可能无法嵌入显示'); }, 5000);
+    }, [hi]);
+
+    const back = useCallback(() => { if (hi > 0) { const i = hi - 1; setHi(i); setCurUrl(hist[i]); setVal(hist[i]); } }, [hi, hist]);
+    const forward = useCallback(() => { if (hi < hist.length - 1) { const i = hi + 1; setHi(i); setCurUrl(hist[i]); setVal(hist[i]); } }, [hi, hist]);
+
+    const refresh = useCallback(() => {
+      if (!curUrl) return;
+      setLoading(true); setError(null);
+      const u = curUrl; setCurUrl('');
+      setTimeout(() => { setCurUrl(u); setTimeout(() => setLoading(false), 3000); }, 100);
+    }, [curUrl]);
+
+    const submit = e => { e.preventDefault(); nav(val); inputRef.current?.blur(); };
+
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: '#1C1C1E', display: 'flex', flexDirection: 'column', animation: 'appOpen 0.45s var(--ease-out) both', zIndex: 200 }}>
+        <div className="lg" style={{ paddingTop: 'var(--ios-safe-top)', paddingLeft: 12, paddingRight: 12, paddingBottom: 8, display: 'flex', alignItems: 'center', gap: 8, position: 'relative', zIndex: 10, borderRadius: 0, background: 'rgba(28,28,30,0.85)' }}>
+          <button onClick={onClose} className="press" style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1, padding: 0 }}><IconBack size={16} /></button>
+          <form onSubmit={submit} style={{ flex: 1, minWidth: 0 }}>
+            <div className="lg" style={{ display: 'flex', alignItems: 'center', borderRadius: 14, padding: '7px 12px', gap: 8, position: 'relative', background: 'rgba(255,255,255,0.08)' }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, zIndex: 1 }}><circle cx="7" cy="7" r="5" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3"/><path d="M10.5 10.5L13 13" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              <input ref={inputRef} value={val} onChange={e => setVal(e.target.value)} onFocus={() => setShowStart(true)} placeholder="搜索或输入网址" style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: 15, fontFamily: 'inherit', zIndex: 1, minWidth: 0 }} />
+              {val && (<button type="button" onClick={() => setVal('')} style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, padding: 0, zIndex: 1, flexShrink: 0 }}>×</button>)}
+            </div>
+          </form>
+        </div>
+
+        {loading && <div style={{ height: 2, background: 'rgba(255,255,255,0.1)', position: 'relative', overflow: 'hidden', zIndex: 11 }}>
+          <div style={{ position: 'absolute', width: '40%', height: '100%', background: 'linear-gradient(90deg, transparent, #00D4FF, #007AFF, transparent)', animation: 'loadBar 1.5s linear infinite' }} />
+        </div>}
+
+        <div style={{ flex: 1, position: 'relative', background: '#fff' }}>
+          {showStart || !curUrl ? (
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, #1C1C1E, #141418)', overflow: 'auto', padding: 24 }}>
+              <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 600, marginBottom: 8 }}>快捷访问</h2>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: 20 }}>点击图标快速访问常用网站</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+                {QUICK_SITES.map((s, i) => (
+                  <div key={s.name} onClick={() => nav(s.url)} className="press" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: 'pointer', animation: `widgetIn 0.5s ease-out ${i * 0.05}s both` }}>
+                    <div className="lg" style={{ width: 56, height: 56, borderRadius: 16, background: s.c, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 22, fontWeight: 700, position: 'relative' }}><span style={{ zIndex: 1 }}>{s.name[0]}</span></div>
+                    <span style={{ color: '#fff', fontSize: 12, opacity: 0.85 }}>{s.name}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="lg" style={{ borderRadius: 18, padding: 18, position: 'relative', background: 'rgba(255,255,255,0.06)' }}>
+                <h3 style={{ color: '#fff', fontSize: 15, fontWeight: 600, marginBottom: 10, zIndex: 1, position: 'relative' }}>使用提示</h3>
+                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 1.8, zIndex: 1, position: 'relative' }}>
+                  <p>• 输入网址或搜索关键词开始浏览</p>
+                  <p>• 部分网站因安全策略无法嵌入显示</p>
+                  <p>• 使用前进/后退按钮浏览历史记录</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <iframe src={curUrl} onLoad={() => { setLoading(false); setError(null); }} style={{ width: '100%', height: '100%', border: 'none' }} sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" />
+              {error && (
+                <div style={{ position: 'absolute', inset: 0, background: '#1C1C1E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 }}>
+                  <div style={{ color: '#fff', fontSize: 16 }}>无法加载此网站</div>
+                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center', lineHeight: 1.6 }}>部分网站因安全策略限制<br/>无法在嵌入式浏览器中打开</div>
+                  <button onClick={refresh} className="press" style={{ padding: '10px 24px', background: '#007AFF', border: 'none', borderRadius: 20, color: '#fff', fontSize: 14, fontWeight: 500, cursor: 'pointer', marginTop: 8, fontFamily: 'inherit' }}>重新加载</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="lg" style={{ padding: '10px 16px', paddingBottom: 'calc(var(--ios-safe-bottom) + 10px)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', position: 'relative', borderRadius: 0, background: 'rgba(28,28,30,0.85)', borderTop: '0.5px solid rgba(255,255,255,0.08)', zIndex: 10 }}>
+          <Btn disabled={hi <= 0} onClick={back}><svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M14 4L6 11l8 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></Btn>
+          <Btn disabled={hi >= hist.length - 1} onClick={forward}><svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M8 4l8 7-8 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></Btn>
+          <Btn disabled={!curUrl} onClick={refresh}><svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 11a8 8 0 0114-5.3M18 4v3h-3M18 11a8 8 0 01-14 5.3M4 18v-3h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></Btn>
+          <Btn onClick={() => setShowStart(true)}><svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor"><path d="M3 10L11 3l8 7v9a1 1 0 01-1 1h-4v-6H8v6H4a1 1 0 01-1-1v-9z" fill="currentColor" opacity="0.3"/><path d="M3 10L11 3l8 7v9a1 1 0 01-1 1h-4v-6H8v6H4a1 1 0 01-1-1v-9z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg></Btn>
+          <Btn><svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="4" y="3" width="14" height="16" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M7 3h8v3H7V3z" fill="currentColor" opacity="0.3"/></svg></Btn>
+        </div>
+      </div>
+    );
+  }
+
+  function Btn({ children, onClick, disabled }) {
+    return (
+      <button onClick={onClick} disabled={disabled} className="press" style={{ width: 40, height: 40, background: 'transparent', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', color: disabled ? 'rgba(255,255,255,0.2)' : '#007AFF', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'color 0.2s' }}>{children}</button>
+    );
+  }
+
+  // ════════════════════════════════════════════════
+  // App: Settings
+  // ════════════════════════════════════════════════
+  function AppSettings({ onClose }) {
+    const { system, toggle, setSetting, resetSystem } = usePingUI();
+    const [page, setPage] = useState('main');
+    const [devTap, setDevTap] = useState(0);
+    const [devMode, setDevMode] = useState(system.developerMode);
+    const [devToast, setDevToast] = useState('');
+    const [confirm, setConfirm] = useState(false);
+    const [transition, setTransition] = useState(null);
+
+    const go = p => { setTransition('in'); setTimeout(() => { setPage(p); setTransition(null); }, 180); };
+    const back = () => { setTransition('out'); setTimeout(() => { setPage('main'); setTransition(null); }, 180); };
+
+    const onSysNameTap = () => {
+      if (devMode) { go('dev'); return; }
+      const next = devTap + 1;
+      setDevTap(next);
+      if (next >= 7) {
+        setDevMode(true);
+        setSetting('developerMode', true);
+        setDevToast('开发者模式已开启');
+        setTimeout(() => setDevToast(''), 2000);
+      } else if (next >= 4) {
+        setDevToast(`再点 ${7-next} 次开启开发者模式`);
+        setTimeout(() => setDevToast(''), 1500);
+      }
+    };
+
+    const titleMap = { main: '设置', network: '无线局域网', display: '显示与亮度', sound: '声音与触感', about: '关于本机', dev: '开发者选项', wallpaper: '墙纸' };
+
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: '#000', display: 'flex', flexDirection: 'column', animation: 'appOpen 0.45s var(--ease-out) both', zIndex: 200 }}>
+        <div style={{ background: 'rgba(22,22,26,0.85)', backdropFilter: 'blur(30px) saturate(180%)', WebkitBackdropFilter: 'blur(30px) saturate(180%)', borderBottom: '0.5px solid rgba(255,255,255,0.08)', zIndex: 10, position: 'relative' }}>
+          <div style={{ paddingTop: 'var(--ios-safe-top)', paddingLeft: 16, paddingRight: 16, paddingBottom: page === 'main' ? 4 : 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {page !== 'main' ? (
+              <button onClick={back} className="press" style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'none', border: 'none', color: '#007AFF', fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}><IconBack size={20} color="#007AFF" /><span style={{ fontSize: 17 }}>设置</span></button>
+            ) : (
+              <button onClick={onClose} className="press" style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconBack size={18} /></button>
+            )}
+            <div style={{ flex: 1 }} />
+          </div>
+          <div style={{ padding: '0 20px 12px', transition: 'opacity 0.2s', opacity: transition ? 0 : 1 }}>
+            <h1 style={{ color: '#fff', fontSize: page === 'main' ? 34 : 28, fontWeight: 700, letterSpacing: -0.5, lineHeight: 1.2 }}>{titleMap[page] || '设置'}</h1>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflow: 'auto', paddingBottom: 40 }}>
+          <div style={{ transition: 'transform 0.22s var(--ease-out), opacity 0.22s', transform: transition === 'in' ? 'translateX(30%)' : transition === 'out' ? 'translateX(-30%)' : 'translateX(0)', opacity: transition ? 0 : 1 }}>
+            {page === 'main' && <SetMain onNav={go} />}
+            {page === 'network' && <SetNetwork />}
+            {page === 'display' && <SetDisplay />}
+            {page === 'sound' && <SetSound />}
+            {page === 'about' && <SetAbout onTap={onSysNameTap} />}
+            {page === 'dev' && <SetDev onBack={back} />}
+            {page === 'wallpaper' && <SetWallpaper />}
+          </div>
+        </div>
+
+        {devToast && (
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '14px 22px', borderRadius: 16, background: 'rgba(30,30,38,0.92)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', border: '0.5px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 14, zIndex: 100, animation: 'scaleIn 0.25s var(--spring-fast) both' }}>{devToast}</div>
+        )}
+
+        {confirm && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 48 }} onClick={() => setConfirm(false)}>
+            <div onClick={e => e.stopPropagation()} className="lg" style={{ borderRadius: 20, width: '100%', overflow: 'hidden', position: 'relative', background: 'rgba(40,40,48,0.95)', animation: 'scaleIn 0.25s var(--spring-fast) both' }}>
+              <div style={{ padding: '22px 16px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+                <div style={{ color: '#fff', fontSize: 17, fontWeight: 600, marginBottom: 8 }}>确认重置所有设置？</div>
+                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 1.6 }}>所有系统设置将恢复默认值<br/>照片和数据不会被删除</div>
+              </div>
+              <div style={{ display: 'flex', borderTop: '0.5px solid rgba(255,255,255,0.1)', position: 'relative', zIndex: 1 }}>
+                <button onClick={() => setConfirm(false)} style={{ flex: 1, padding: '14px 0', background: 'none', border: 'none', color: '#007AFF', fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', borderRight: '0.5px solid rgba(255,255,255,0.1)' }}>取消</button>
+                <button onClick={() => { resetSystem(); setPage('main'); setConfirm(false); }} style={{ flex: 1, padding: '14px 0', background: 'none', border: 'none', color: '#FF3B30', fontSize: 17, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>重置</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function IosSwitch({ value, onChange }) {
+    return (
+      <div onClick={onChange} className="press" style={{ width: 51, height: 31, borderRadius: 16, background: value ? '#34D399' : 'rgba(120,120,128,0.32)', position: 'relative', transition: 'background 0.25s', flexShrink: 0 }}>
+        <div style={{ position: 'absolute', top: 2, left: value ? 22 : 2, width: 27, height: 27, borderRadius: '50%', background: '#fff', boxShadow: '0 3px 8px rgba(0,0,0,0.15)', transition: 'left 0.25s var(--spring-fast)' }} />
+      </div>
+    );
+  }
+
+  function SetRow({ title, detail, icon, onClick, isToggle, tv, last, danger }) {
+    return (
+      <div onClick={isToggle ? onClick : onClick} className={isToggle || onClick ? 'press' : ''} style={{ display: 'flex', alignItems: 'center', minHeight: 56, padding: '0 16px', cursor: isToggle || onClick ? 'pointer' : 'default', position: 'relative' }}>
+        {icon && (<div style={{ width: 30, height: 30, borderRadius: 8, marginRight: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</div>)}
+        <div style={{ flex: 1, color: danger ? '#FF453A' : '#fff', fontSize: 17 }}>{title}</div>
+        {detail && <span style={{ color: 'rgba(235,235,245,0.5)', fontSize: 15, marginRight: 6 }}>{detail}</span>}
+        {isToggle ? <IosSwitch value={tv} onChange={onClick} /> : onClick && <IconChevron size={12} color="rgba(255,255,255,0.3)" />}
+        {!last && (<div style={{ position: 'absolute', bottom: 0, right: 0, left: icon ? 60 : 16, height: 0.5, background: 'rgba(84,84,88,0.5)' }} />)}
+      </div>
+    );
+  }
+
+  function Section({ children, header }) {
+    return (
+      <div style={{ marginBottom: 28 }}>
+        {header && (<div style={{ fontSize: 13, color: 'rgba(235,235,245,0.6)', padding: '8px 32px 6px', fontWeight: 400 }}>{header}</div>)}
+        <div className="lg" style={{ borderRadius: 14, margin: '0 16px', overflow: 'hidden', position: 'relative', background: 'rgba(30,30,38,0.7)' }}>{children}</div>
+      </div>
+    );
+  }
+
+  function SetMain({ onNav }) {
+    const { system, toggle } = usePingUI();
+    return (
+      <>
+        <div style={{ padding: '4px 16px 20px' }}>
+          <div className="lg" style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: '8px 12px', gap: 8, position: 'relative' }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" style={{ zIndex: 1 }}><circle cx="7" cy="7" r="5" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/><path d="M10.5 10.5L13 13" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16, zIndex: 1 }}>搜索</span>
+          </div>
+        </div>
+
+        <Section header="已连接">
+          <SetRow icon={<IconWifi size={18} color="#fff" />} title="无线局域网" detail="Home_5G" onClick={() => onNav('network')} />
+          <SetRow icon={<IconBluetooth size={18} color="#fff" />} title="蓝牙" detail={system.bluetooth ? '已开启' : '关闭'} onClick={() => onNav('network')} last />
+        </Section>
+
+        <Section header="通知与声音">
+          <SetRow icon={<div style={{ width: 30, height: 30, borderRadius: 8, background: '#FF9500' }} />} title="通知" detail="5 项" />
+          <SetRow icon={<div style={{ width: 30, height: 30, borderRadius: 8, background: '#AF52DE' }} />} title="声音与触感" onClick={() => onNav('sound')} last />
+        </Section>
+
+        <Section header="显示">
+          <SetRow icon={<div style={{ width: 30, height: 30, borderRadius: 8, background: '#007AFF' }} />} title="显示与亮度" onClick={() => onNav('display')} />
+          <SetRow icon={<div style={{ width: 30, height: 30, borderRadius: 8, background: '#34D399' }} />} title="墙纸" onClick={() => onNav('wallpaper')} last />
+        </Section>
+
+        <Section header="应用">
+          <SetRow icon={<IconCamera size={22} />} title="相机" detail="保留设置" />
+          <SetRow icon={<IconPhotos size={22} />} title="照片" detail="5 GB" />
+          <SetRow icon={<IconBrowser size={22} />} title="浏览器" detail="默认搜索引擎" last />
+        </Section>
+
+        <Section header="通用">
+          <SetRow icon={<div style={{ width: 30, height: 30, borderRadius: 8, background: '#8E8E93' }} />} title="关于本机" detail={`PingUI ${system.version}`} onClick={() => onNav('about')} />
+          {system.developerMode && (<SetRow icon={<div style={{ width: 30, height: 30, borderRadius: 8, background: '#FF2D55' }} />} title="开发者选项" onClick={() => onNav('dev')} last />)}
+        </Section>
+      </>
+    );
+  }
+
+  function SetNetwork() {
+    const { system, toggle } = usePingUI();
+    const networks = [
+      { n: 'Home_5G', s: 4, sel: true },
+      { n: 'Office_Network', s: 3 },
+      { n: 'Guest_Wifi', s: 2 },
+      { n: 'Coffee_Free', s: 1 },
+    ];
+    const Sig = ({ s }) => (<div style={{ display: 'flex', gap: 2, alignItems: 'flex-end' }}>{[1,2,3,4].map(i => (<div key={i} style={{ width: 3, height: i * 3 + 2, borderRadius: 1, background: i <= s ? '#fff' : 'rgba(255,255,255,0.3)' }} />))}</div>);
+
+    return (
+      <>
+        <div style={{ marginBottom: 28, marginTop: 12 }}>
+          <div className="lg" style={{ borderRadius: 14, margin: '0 16px', overflow: 'hidden', position: 'relative', background: 'rgba(30,30,38,0.7)' }}>
+            <SetRow title="无线局域网" isToggle tv={system.wifi} onClick={() => toggle('wifi')} last />
+          </div>
+        </div>
+
+        {system.wifi && (
+          <>
+            <div style={{ fontSize: 13, color: 'rgba(235,235,245,0.6)', padding: '8px 32px 6px' }}>已连接的网络</div>
+            <div className="lg" style={{ borderRadius: 14, margin: '0 16px 28px', overflow: 'hidden', position: 'relative', background: 'rgba(30,30,38,0.7)' }}>
+              <SetRow title={networks[0].n} detail={<Sig s={networks[0].s} />} last />
+            </div>
+
+            <div style={{ fontSize: 13, color: 'rgba(235,235,245,0.6)', padding: '8px 32px 6px' }}>可用网络</div>
+            <div className="lg" style={{ borderRadius: 14, margin: '0 16px', overflow: 'hidden', position: 'relative', background: 'rgba(30,30,38,0.7)' }}>
+              {networks.slice(1).map((n, i) => (<SetRow key={n.n} title={n.n} detail={<Sig s={n.s} />} last={i === networks.length - 2} />))}
+            </div>
+          </>
+        )}
+      </>
+    );
+  }
+
+  function SetDisplay() {
+    const { system, toggle, setSetting } = usePingUI();
+    return (
+      <>
+        <div style={{ padding: '16px 16px 28px' }}>
+          <div className="lg" style={{ borderRadius: 14, padding: 16, position: 'relative', background: 'rgba(30,30,38,0.7)' }}>
+            <div style={{ color: '#fff', fontSize: 15, marginBottom: 12, fontWeight: 500, zIndex: 1, position: 'relative' }}>亮度</div>
+            <HSlider value={system.brightness} onChange={v => setSetting('brightness', v)} gradient="linear-gradient(90deg, #fff, #e5e5e5)" />
+          </div>
+        </div>
+
+        <div style={{ fontSize: 13, color: 'rgba(235,235,245,0.6)', padding: '8px 32px 6px' }}>外观</div>
+        <div className="lg" style={{ borderRadius: 14, margin: '0 16px 28px', overflow: 'hidden', position: 'relative', background: 'rgba(30,30,38,0.7)' }}>
+          <SetRow title="深色模式" isToggle tv={system.darkMode} onClick={() => toggle('darkMode')} last />
+        </div>
+
+        <div className="lg" style={{ borderRadius: 14, margin: '0 16px', overflow: 'hidden', position: 'relative', background: 'rgba(30,30,38,0.7)' }}>
+          <SetRow title="文字大小" detail="标准" />
+          <SetRow title="旋转锁定" isToggle tv={system.rotationLock} onClick={() => toggle('rotationLock')} last />
+        </div>
+      </>
+    );
+  }
+
+  function SetSound() {
+    const { system, toggle, setSetting } = usePingUI();
+    return (
+      <>
+        <div style={{ padding: '16px 16px 28px' }}>
+          <div className="lg" style={{ borderRadius: 14, padding: 16, position: 'relative', background: 'rgba(30,30,38,0.7)' }}>
+            <div style={{ color: '#fff', fontSize: 15, marginBottom: 12, fontWeight: 500, zIndex: 1, position: 'relative' }}>铃声和提醒</div>
+            <HSlider value={system.volume} onChange={v => setSetting('volume', v)} gradient="linear-gradient(90deg, #a78bfa, #8b5cf6)" />
+          </div>
+        </div>
+
+        <div className="lg" style={{ borderRadius: 14, margin: '0 16px', overflow: 'hidden', position: 'relative', background: 'rgba(30,30,38,0.7)' }}>
+          <SetRow title="静音模式" isToggle tv={system.muted} onClick={() => toggle('muted')} last />
+        </div>
+      </>
+    );
+  }
+
+  function SetAbout({ onTap }) {
+    const { system } = usePingUI();
+    const rows = [
+      ['系统名称', system.systemName, onTap],
+      ['系统版本', system.version],
+      ['型号名称', system.model],
+      ['型号号码', 'A2848'],
+      ['处理器', system.cpu],
+      ['分辨率', system.resolution],
+      ['总容量', `${system.storageTotal} GB`],
+      ['可用容量', `${(system.storageTotal - system.storageUsed).toFixed(1)} GB`, null, true],
+    ];
+    return (
+      <>
+        <div style={{ padding: '32px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div className="lg" style={{ width: 72, height: 72, borderRadius: 18, background: 'linear-gradient(135deg, #6366F1 0%, #A855F7 50%, #EC4899 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <span style={{ fontWeight: 700, fontSize: 28, color: '#fff', zIndex: 1, letterSpacing: -0.5 }}>P</span>
+          </div>
+          <div style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>{system.deviceName}</div>
+        </div>
+
+        <div className="lg" style={{ borderRadius: 14, margin: '0 16px 28px', overflow: 'hidden', position: 'relative', background: 'rgba(30,30,38,0.7)' }}>
+          {rows.map((r, i) => (<SetRow key={r[0]} title={r[0]} detail={r[1]} onClick={r[2]} last={i === rows.length - 1} />))}
+        </div>
+      </>
+    );
+  }
+
+  function SetDev({ onBack }) {
+    const { system, toggle, setSetting, resetSystem } = usePingUI();
+    const [confirm, setConfirm] = useState(false);
+
+    const Toggle = ({ t, v, onChange, last }) => (<SetRow title={t} isToggle tv={v} onClick={onChange} last={last} />);
+
+    const Slider = ({ t, v, onChange }) => (
+      <div style={{ padding: '14px 16px', position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fff', fontSize: 15, marginBottom: 10 }}>
+          <span>{t}</span><span style={{ color: 'rgba(255,255,255,0.5)' }}>{v}%</span>
+        </div>
+        <HSlider value={v} onChange={onChange} gradient="linear-gradient(90deg, #FF375F, #FF2D55)" />
+      </div>
+    );
+
+    return (
+      <>
+        <div style={{ padding: '16px 16px 0' }}>
+          <div className="lg" style={{ background: 'rgba(255,59,48,0.1)', borderRadius: 14, padding: 14, position: 'relative', border: '0.5px solid rgba(255,59,48,0.25)' }}>
+            <div style={{ color: '#FF453A', fontSize: 13, lineHeight: 1.6, zIndex: 1, position: 'relative' }}>⚠️ 开发者选项用于调试和开发。<br/>修改这些设置可能影响系统稳定性。</div>
+          </div>
+        </div>
+
+        <Section header="系统功能">
+          <Toggle t="开发者模式" v={system.developerMode} onChange={() => toggle('developerMode')} />
+          <Toggle t="WiFi" v={system.wifi} onChange={() => toggle('wifi')} />
+          <Toggle t="蓝牙" v={system.bluetooth} onChange={() => toggle('bluetooth')} />
+          <Toggle t="飞行模式" v={system.airplane} onChange={() => toggle('airplane')} />
+          <Toggle t="深色模式" v={system.darkMode} onChange={() => toggle('darkMode')} />
+          <Toggle t="手电筒" v={system.flashlight} onChange={() => toggle('flashlight')} />
+          <Toggle t="静音" v={system.muted} onChange={() => toggle('muted')} />
+          <Toggle t="旋转锁定" v={system.rotationLock} onChange={() => toggle('rotationLock')} last />
+        </Section>
+
+        <Section header="显示调节">
+          <Slider t="亮度" v={system.brightness} onChange={v => setSetting('brightness', v)} />
+        </Section>
+        <Section header="声音">
+          <Slider t="音量" v={system.volume} onChange={v => setSetting('volume', v)} />
+        </Section>
+
+        <Section header="设备信息">
+          {[['系统版本', `${system.systemName} ${system.version}`], ['设备型号', system.model], ['构建版本', system.build, true]].map((r, i) => (<SetRow key={r[0]} title={r[0]} detail={r[1]} last={i === 2} />))}
+        </Section>
+
+        <Section header="危险操作">
+          <div onClick={() => setConfirm(true)} className="press" style={{ display: 'flex', alignItems: 'center', minHeight: 56, padding: '0 16px', cursor: 'pointer', justifyContent: 'center' }}>
+            <span style={{ color: '#FF3B30', fontSize: 17 }}>重置所有设置</span>
+          </div>
+        </Section>
+
+        {confirm && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 48 }} onClick={() => setConfirm(false)}>
+            <div onClick={e => e.stopPropagation()} className="lg" style={{ borderRadius: 20, width: '100%', overflow: 'hidden', position: 'relative', background: 'rgba(40,40,48,0.95)', animation: 'scaleIn 0.25s var(--spring-fast) both' }}>
+              <div style={{ padding: '22px 16px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+                <div style={{ color: '#fff', fontSize: 17, fontWeight: 600, marginBottom: 8 }}>确认重置？</div>
+                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 1.6 }}>所有系统设置将恢复默认值</div>
+              </div>
+              <div style={{ display: 'flex', borderTop: '0.5px solid rgba(255,255,255,0.1)', position: 'relative', zIndex: 1 }}>
+                <button onClick={() => setConfirm(false)} style={{ flex: 1, padding: '14px 0', background: 'none', border: 'none', color: '#007AFF', fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', borderRight: '0.5px solid rgba(255,255,255,0.1)' }}>取消</button>
+                <button onClick={() => { resetSystem(); setConfirm(false); onBack(); }} style={{ flex: 1, padding: '14px 0', background: 'none', border: 'none', color: '#FF3B30', fontSize: 17, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>重置</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  function SetWallpaper() {
+    const { system, setSetting } = usePingUI();
+    return (
+      <>
+        <div style={{ fontSize: 13, color: 'rgba(235,235,245,0.6)', padding: '16px 32px 10px' }}>选取新墙纸</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px' }}>
+          {WALLPAPERS.map((wp, i) => (
+            <div key={i} onClick={() => setSetting('wallpaper', i)} className="press" style={{ aspectRatio: '9 / 16', borderRadius: 18, overflow: 'hidden', cursor: 'pointer', position: 'relative', border: system.wallpaper === i ? '3px solid #007AFF' : '2px solid rgba(255,255,255,0.08)', background: wp.bg, transition: 'border 0.25s' }}>
+              {wp.orbs && (<>
+                <div className="orb" style={{ width: 80, height: 80, background: 'radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%)', top: '10%', left: '-15%' }} />
+                <div className="orb" style={{ width: 60, height: 60, background: 'radial-gradient(circle, rgba(236,72,153,0.25), transparent 70%)', bottom: '20%', right: '-10%' }} />
+              </>)}
+              {system.wallpaper === i && (<div style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: '#007AFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,122,255,0.4)' }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="#fff"><path d="M5.5 10L2 6.5 3.5 5 5.5 7l5-5L12 3.5 5.5 10z"/></svg>
+              </div>)}
+              <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, textAlign: 'center', color: '#fff', fontSize: 12, fontWeight: 500, textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{wp.name}</div>
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  function HSlider({ value, onChange, min = 0, max = 100, gradient }) {
+    const ref = useRef(null);
+    const dragging = useRef(false);
+
+    const onMove = useCallback(x => {
+      if (!ref.current || !dragging.current) return;
+      const r = ref.current.getBoundingClientRect();
+      const p = ((x - r.left) / r.width) * (max - min) + min;
+      onChange(Math.round(Math.max(min, Math.min(max, p))));
+    }, [onChange, min, max]);
+
+    useEffect(() => {
+      const up = () => { dragging.current = false; };
+      const mv = e => onMove(e.touches ? e.touches[0].clientX : e.clientX);
+      window.addEventListener('mouseup', up);
+      window.addEventListener('touchend', up);
+      window.addEventListener('mousemove', mv);
+      window.addEventListener('touchmove', mv);
+      return () => {
+        window.removeEventListener('mouseup', up);
+        window.removeEventListener('touchend', up);
+        window.removeEventListener('mousemove', mv);
+        window.removeEventListener('touchmove', mv);
+      };
+    }, [onMove]);
+
+    const pct = ((value - min) / (max - min)) * 100;
+
+    return (
+      <div ref={ref} onMouseDown={e => { dragging.current = true; onMove(e.clientX); }} onTouchStart={e => { dragging.current = true; onMove(e.touches[0].clientX); }} style={{ height: 30, borderRadius: 15, background: 'rgba(255,255,255,0.12)', position: 'relative', cursor: 'pointer' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: gradient, borderRadius: 15, transition: dragging.current ? 'none' : 'width 0.2s var(--ease-io)' }} />
+        <div style={{ position: 'absolute', top: '50%', left: `calc(${pct}% - 14px)`, transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', background: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.2)', transition: dragging.current ? 'none' : 'left 0.2s var(--ease-io)' }} />
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════
+  // App: Intro
+  // ════════════════════════════════════════════════
+  const FEATURES = [
+    { icon: '🎨', title: '液态玻璃设计', desc: 'iOS 27 风格的液态玻璃效果，毛玻璃、光折射、流动质感。', c: 'linear-gradient(135deg, #8B5CF6, #EC4899)' },
+    { icon: '🔒', title: '上滑解锁', desc: '经典 iOS 解锁交互，跟手滑动，流畅弹性动画。', c: 'linear-gradient(135deg, #3B82F6, #06B6D4)' },
+    { icon: '📸', title: '真实相机', desc: '调用设备摄像头，闪光灯、前后镜切换，拍摄即存。', c: 'linear-gradient(135deg, #10B981, #059669)' },
+    { icon: '🖼️', title: '智能相册', desc: '网格视图与全屏浏览，左右滑动切换，本地存储。', c: 'linear-gradient(135deg, #F59E0B, #EF4444)' },
+    { icon: '🌐', title: '浏览器', desc: '嵌入式浏览器，地址栏搜索，前进后退，快捷入口。', c: 'linear-gradient(135deg, #0EA5E9, #2563EB)' },
+    { icon: '⚙️', title: '系统设置', desc: 'WiFi、亮度、音量、壁纸、关于本机，完整设置面板。', c: 'linear-gradient(135deg, #6B7280, #4B5563)' },
+    { icon: '🎛️', title: '控制中心', desc: '顶部下滑呼出，网络、手电筒、截图、亮度音量。', c: 'linear-gradient(135deg, #8B5CF6, #6366F1)' },
+    { icon: '✨', title: '灵动岛', desc: '灵动岛交互设计，通知状态一目了然。', c: 'linear-gradient(135deg, #EC4899, #8B5CF6)' },
+  ];
+
+  function AppIntro({ onClose }) {
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: '#0a0a10', display: 'flex', flexDirection: 'column', animation: 'appOpen 0.45s var(--ease-out) both', zIndex: 200, overflow: 'auto' }}>
+        <div className="lg" style={{ paddingTop: 'var(--ios-safe-top)', paddingLeft: 16, paddingRight: 16, paddingBottom: 12, display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10, borderRadius: 0, background: 'rgba(10,10,16,0.8)' }}>
+          <button onClick={onClose} className="press" style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'none', border: 'none', color: '#007AFF', fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', padding: 0, zIndex: 1 }}><IconBack size={20} color="#007AFF" /><span style={{ fontSize: 17 }}>返回</span></button>
+          <div style={{ flex: 1, textAlign: 'center', color: '#fff', fontSize: 17, fontWeight: 600, zIndex: 1 }}>功能介绍</div>
+          <div style={{ width: 60 }} />
+        </div>
+
+        <div style={{ padding: '32px 24px 24px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+          <div className="orb" style={{ width: 180, height: 180, background: 'radial-gradient(circle, rgba(139,92,246,0.25), transparent 70%)', top: '-20%', left: '30%' }} />
+          <div style={{ display: 'inline-flex', marginBottom: 20, position: 'relative' }}>
+            <div className="lg" style={{ width: 90, height: 90, borderRadius: 24, background: 'linear-gradient(135deg, #6366F1 0%, #A855F7 50%, #EC4899 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              <span style={{ fontSize: 40, fontWeight: 800, color: '#fff', letterSpacing: -1, zIndex: 1 }}>P</span>
+            </div>
+          </div>
+          <h1 style={{ color: '#fff', fontSize: 30, fontWeight: 700, letterSpacing: -0.5, marginBottom: 10 }}>PingUI 2.0</h1>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, lineHeight: 1.6, maxWidth: 280, margin: '0 auto' }}>全新液态玻璃设计<br/>为极致体验而生</p>
+        </div>
+
+        <div style={{ padding: '12px 16px 48px' }}>
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, padding: '0 8px 12px' }}>全部 {FEATURES.length} 项特性</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {FEATURES.map((f, i) => (
+              <div key={f.title} className="lg" style={{ borderRadius: 20, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, position: 'relative', background: 'rgba(30,30,40,0.55)', animation: `widgetIn 0.5s var(--ease-io) ${i * 0.05}s both` }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: f.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, zIndex: 1 }}>{f.icon}</div>
+                <div style={{ color: '#fff', fontSize: 15, fontWeight: 600, zIndex: 1, lineHeight: 1.3 }}>{f.title}</div>
+                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, lineHeight: 1.6, zIndex: 1 }}>{f.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding: '0 24px 48px' }}>
+          <div className="lg" style={{ borderRadius: 18, padding: 20, position: 'relative', background: 'rgba(30,30,40,0.4)' }}>
+            <div style={{ color: '#fff', fontSize: 14, fontWeight: 600, marginBottom: 8, zIndex: 1, position: 'relative' }}>💡 使用技巧</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 1.8, zIndex: 1, position: 'relative' }}>
+              <p>• 从屏幕顶部右侧下滑呼出控制中心</p>
+              <p>• 设置 → 关于本机 → 连点"系统名称"7次开启开发者模式</p>
+              <p>• 所有数据均存储在本地，保护隐私</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════
+  // 状态栏 + 灵动岛
+  // ════════════════════════════════════════════════
+  function StatusBar() {
+    const [t, setT] = useState(new Date());
+    const { system } = usePingUI();
+    useEffect(() => { const i = setInterval(() => setT(new Date()), 1000); return () => clearInterval(i); }, []);
+
+    return (
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 'var(--ios-safe-top)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 28px 6px', zIndex: 400, pointerEvents: 'none', color: '#fff', fontWeight: 600, fontSize: 17, textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{t.getHours().toString().padStart(2,'0')}:{t.getMinutes().toString().padStart(2,'0')}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <svg width="18" height="12" viewBox="0 0 18 12" fill="#fff">
+            <rect x="0" y="7.5" width="3" height="4.5" rx="0.7" opacity="0.5"/><rect x="5" y="5" width="3" height="7" rx="0.7" opacity="0.7"/><rect x="10" y="2.5" width="3" height="9.5" rx="0.7" opacity="0.85"/><rect x="15" y="0" width="3" height="12" rx="0.7"/>
+          </svg>
+          {system.wifi && (
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="#fff">
+              <path d="M8 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/><path d="M3.5 7a6.5 6.5 0 019 0" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" fill="none"/><path d="M0.5 4a11 11 0 0115 0" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+            </svg>
+          )}
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none">
+            <rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="rgba(255,255,255,0.5)" fill="none"/><rect x="2" y="2" width="18" height="8" rx="2" fill="#fff" opacity="0.9"/><path d="M23 3.5V8.5C23.8 8.2 24.5 7.2 24.5 6.5C24.5 5.8 23.8 4.8 23 4.5Z" fill="rgba(255,255,255,0.5)"/>
+          </svg>
+        </div>
+      </div>
+    );
+  }
+
+  function DynamicIsland({ state = 'idle' }) {
+    const sizes = { idle: { w: 126, h: 37, r: 24 }, music: { w: 126, h: 37, r: 24 }, charging: { w: 200, h: 37, r: 24 } };
+    const s = sizes[state] || sizes.idle;
+
+    return (
+      <div style={{ position: 'absolute', top: 'calc(var(--ios-safe-top) - 50px + 10px)', left: '50%', transform: 'translateX(-50%)', zIndex: 500, pointerEvents: 'none' }}>
+        <div style={{ width: s.w, height: s.h, borderRadius: s.r, background: '#000', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', position: 'relative', transition: 'all 0.4s var(--spring-fast)', overflow: 'hidden' }}>
+          {state === 'charging' && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', height: '100%', animation: 'scaleIn 0.3s var(--spring-fast) both' }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="#34D399"><path d="M10 1l-7 9h4l-1 5 7-9H7l3-5z"/></svg>
+              <span style={{ color: '#34D399', fontSize: 13, fontWeight: 600 }}>85%</span>
+            </div>
+          )}
+          {state === 'music' && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', height: '100%' }}>
+              <div style={{ width: 20, height: 20, borderRadius: 6, background: 'linear-gradient(135deg, #ec4899, #8b5cf6)' }} />
+              <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 14 }}>
+                {[6, 12, 8, 14, 10].map((h, i) => (<div key={i} style={{ width: 2.5, height: h, background: '#fff', borderRadius: 1.5, animation: `breathe ${0.5 + i * 0.12}s ease-in-out infinite` }} />))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════
+  // App: System Main
+  // ════════════════════════════════════════════════
+  function PingUISystem() {
+    const [bootDone, setBootDone] = useState(false);
+    const [locked, setLocked] = useState(true);
+    const [activeApp, setActiveApp] = useState(null);
+    const [ccOpen, setCcOpen] = useState(false);
+    const [diState, setDiState] = useState('idle');
+    const sysRef = useRef(null);
+
+    const dragStart = useRef(null);
+    const dragCC = useRef(false);
+    const [ccOffset, setCcOffset] = useState(null);
+
+    const onDown = (e) => {
+      const t = e.touches ? e.touches[0] : e;
+      const rect = sysRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x = t.clientX - rect.left;
+      const y = t.clientY - rect.top;
+      const safeTop = 54;
+      if (y < safeTop + 8 && x > rect.width * 0.55) {
+        dragCC.current = true;
+        dragStart.current = t.clientY;
+        setCcOffset(0);
+      }
+    };
+    const onMove = (e) => {
+      if (!dragCC.current || dragStart.current === null) return;
+      const t = e.touches ? e.touches[0] : e;
+      const d = t.clientY - dragStart.current;
+      if (d > 0) setCcOffset(Math.min(d, 300));
+    };
+    const onUp = () => {
+      if (!dragCC.current) return;
+      dragCC.current = false;
+      if (ccOffset > 80) setCcOpen(true);
+      setCcOffset(null);
+      dragStart.current = null;
+    };
+
+    const openApp = useCallback(id => { setActiveApp(id); setDiState('music'); }, []);
+    const closeApp = useCallback(target => {
+      setActiveApp(null);
+      setDiState('idle');
+      if (target === 'photos') { setTimeout(() => setActiveApp('photos'), 50); }
+    }, []);
+    const handleUnlock = useCallback(() => { setLocked(false); setDiState('music'); }, []);
+
+    const renderApp = () => {
+      if (!activeApp) return null;
+      const p = { onClose: closeApp, key: activeApp };
+      switch (activeApp) {
+        case 'camera': return <AppCamera {...p} />;
+        case 'photos': return <AppPhotos {...p} />;
+        case 'browser': return <AppBrowser {...p} />;
+        case 'settings': return <AppSettings {...p} />;
+        case 'intro': return <AppIntro {...p} />;
+        default: return null;
+      }
+    };
+
+    return (
+      <PingUIProvider>
+        <div
+          ref={sysRef}
+          onTouchStart={onDown}
+          onTouchMove={onMove}
+          onTouchEnd={onUp}
+          onMouseDown={onDown}
+          onMouseMove={e => { if (dragCC.current) onMove(e); }}
+          onMouseUp={onUp}
+          onMouseLeave={() => { if (dragCC.current) onUp(); }}
+          style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}
+        >
+          <StatusBar />
+          <DynamicIsland state={bootDone && !locked ? diState : 'idle'} />
+
+          {bootDone && !locked && !activeApp && (<HomeScreen onOpenApp={openApp} />)}
+
+          {activeApp && (<div style={{ position: 'absolute', inset: 0, zIndex: 300 }}>{renderApp()}</div>)}
+
+          {ccOpen && <ControlCenter visible={ccOpen} onClose={() => setCcOpen(false)} />}
+
+          {ccOffset !== null && ccOffset > 0 && !ccOpen && (
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 700, pointerEvents: 'none', transform: `translateY(-${300 - ccOffset}px)`, opacity: ccOffset / 300 }}>
+              <div style={{ height: 200, background: 'linear-gradient(180deg, rgba(0,0,0,0.3), transparent)', borderRadius: '0 0 40px 40px', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }} />
+            </div>
+          )}
+
+          {bootDone && locked && (<LockScreen onUnlock={handleUnlock} wallpaperIdx={0} />)}
+
+          {!bootDone && <BootScreen onComplete={() => setBootDone(true)} />}
+
+          {bootDone && !locked && (
+            <div
+              onClick={activeApp ? () => setActiveApp(null) : undefined}
+              style={{ position: 'absolute', bottom: 'calc(var(--ios-safe-bottom) + 6px)', left: '50%', transform: 'translateX(-50%)', width: 140, height: 5, borderRadius: 3, background: activeApp ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.65)', zIndex: 600, cursor: activeApp ? 'pointer' : 'default', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}
+            />
+          )}
+        </div>
+      </PingUIProvider>
+    );
+  }
+
+  // 启动
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<PingUISystem />);
+  </script>
+</body>
+</html>
